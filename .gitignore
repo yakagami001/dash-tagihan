@@ -1,0 +1,11 @@
+# data pribadi & rahasia
+supabase/seed.local.sql
+supabase/.env
+.env
+*.local
+# supabase cli
+supabase/.temp/
+supabase/.branches/
+node_modules/
+.DS_Store
+Thumbs.db
