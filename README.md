@@ -5,7 +5,7 @@ Dashboard checklist tagihan & cicilan bulanan: total yang harus dibayar per bula
 ## Struktur
 
 ```
-web/                      Front end statis (dideploy ke GitHub Pages)
+docs/                     Front end statis (dipublikasikan GitHub Pages)
   index.html              Tampilan
   app.js                  Logika checklist, EWS, chart, form
   store.js                Lapisan data: Supabase, atau localStorage bila config kosong
@@ -15,7 +15,7 @@ supabase/
   functions/ews-reminder/ Edge Function pengingat terjadwal via Telegram
   seed.example.sql        Data contoh
   seed.local.sql          Data pribadi (di-.gitignore, tidak ikut ter-commit)
-.github/workflows/pages.yml  Deploy web/ ke GitHub Pages setiap push ke main
+.github/workflows/pages.yml  Deploy docs/ ke GitHub Pages setiap push ke main
 ```
 
 ## Model data
@@ -34,7 +34,7 @@ supabase/
 1. Buat project di supabase.com.
 2. Jalankan `supabase/migrations/20261028000000_init.sql` di SQL Editor (atau `supabase db push` via CLI).
 3. Authentication → URL Configuration: tambahkan URL GitHub Pages ke *Site URL* dan *Redirect URLs*.
-4. Isi `web/config.js` dengan Project URL dan anon key (Project Settings → API). Anon key aman di browser karena RLS hanya mengizinkan baris milik user yang login.
+4. Isi `docs/config.js` dengan Project URL dan anon key (Project Settings → API). Anon key aman di browser karena RLS hanya mengizinkan baris milik user yang login.
 5. Buka web, login lewat link email, lalu jalankan `seed.local.sql` (ganti `EMAIL_ANDA`) di SQL Editor.
 
 ## Pengingat otomatis (opsional)
@@ -57,7 +57,7 @@ $$);
 
 ## GitHub Pages
 
-Settings → Pages → Source: **GitHub Actions**. Alamat situs: `https://<username>.github.io/dash-tagihan/`.
+Settings → Pages → Source: **Deploy from a branch**, Branch: `main`, folder `/docs`. Alamat situs: `https://<username>.github.io/dash-tagihan/`.
 Alamat `https://dash-tagihan.github.io` hanya bisa dipakai bila ada akun/organisasi GitHub bernama `dash-tagihan` dengan repo `dash-tagihan.github.io`.
 
 Tanpa `config.js`, situs berjalan dalam mode lokal (data di browser masing-masing), sehingga tidak ada data pribadi yang terbuka.

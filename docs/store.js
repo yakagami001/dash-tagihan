@@ -26,7 +26,7 @@
       async deletePayment(k) { delete st.payments[k]; save(); },
     };
     cb.ready(api);
-    cb.notice('Mode lokal: data tersimpan di browser ini saja. Isi <code>web/config.js</code> untuk menyambung ke Supabase.' +
+    cb.notice('Mode lokal: data tersimpan di browser ini saja. Isi <code>docs/config.js</code> untuk menyambung ke Supabase.' +
       (Object.keys(st.bills).length ? "" : ' <button class="btn" id="seed-demo">Isi data contoh</button>'));
     const sd = document.getElementById("seed-demo");
     if (sd) sd.onclick = () => {
