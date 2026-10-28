@@ -266,28 +266,36 @@
   function openPay(mode){
     P.mode=mode||P.mode;P.items={};setErr("pay-err","");
     document.querySelectorAll("[data-pm]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.pm===P.mode));
-    const {groups}=payCandidates();
+    // kelompokkan per platform: tunggakan + periode ini, urut jatuh tempo di dalam platform
+    const byPlat={};
+    payCandidates().groups.forEach(([,list])=>list.forEach(it=>(byPlat[it.bill.platform]=byPlat[it.bill.platform]||[]).push(it)));
     let html="";
-    groups.forEach(([title,list])=>{if(!list.length)return;html+=`<div class="pay-sep">${esc(title)}</div>`;
+    Object.keys(byPlat).sort((a,b)=>a.localeCompare(b)).forEach((plat,gi)=>{
+      const list=byPlat[plat].sort((a,b)=>a.due-b.due),late=list.filter(i=>!i.paid&&i.due<today).length;
+      html+=`<label class="pay-sep"><input type="checkbox" data-grp="${gi}" aria-label="Pilih semua ${esc(plat)}"><b>${esc(plat)}</b><span>${list.length} cicilan${late?` · <span class="pill crit">${late} telat</span>`:""}</span><span class="num">${fmt(sum(list))}</span></label>`;
       list.forEach(it=>{const k=keyOf(it),st=status(it);P.items[k]=it;
-        html+=`<label class="pay-item"><input type="checkbox" value="${esc(k)}">
+        html+=`<label class="pay-item"><input type="checkbox" value="${esc(k)}" data-in="${gi}">
           <span class="due">${String(it.due.getDate()).padStart(2,"0")} ${MON[it.due.getMonth()]}<small>${it.due.getFullYear()}</small></span>
           <span class="desc"><b>${esc(it.bill.platform)}${it.bill.note?" · "+esc(it.bill.note):""}</b><span>Cicilan ke-${it.ke} dari ${it.bill.tenor} · <span class="pill ${st.cls}">${st.txt}</span></span></span>
           <span class="amt">${fmt(it.bill.amount)}</span></label>`})});
     $("pay-list").innerHTML=html||`<div class="empty">${P.mode==="pay"?"Tidak ada cicilan yang belum dibayar di periode ini.":"Belum ada pembayaran di periode ini."}</div>`;
-    $("pay-hint").textContent=P.mode==="pay"?"Centang cicilan yang sudah Anda bayar, lalu konfirmasi.":"Centang pembayaran yang ingin dibatalkan (dikembalikan ke status belum dibayar).";
+    $("pay-hint").textContent=P.mode==="pay"?"Dikelompokkan per platform, termasuk tunggakan bulan sebelumnya. Centang cicilan yang sudah Anda bayar, atau centang nama platform untuk memilih semuanya.":"Centang pembayaran periode ini yang ingin dibatalkan (dikembalikan ke status belum dibayar).";
     $("pay-date-l").hidden=P.mode!=="pay";$("pay-date").value=iso(today);
     $("pay-all").checked=false;$("pay-all").closest("label").hidden=!Object.keys(P.items).length;
     $("pay-go").textContent=P.mode==="pay"?"Konfirmasi sudah dibayar":"Batalkan pembayaran";
     $("pay-go").classList.toggle("danger",P.mode==="undo");$("pay-go").classList.toggle("solid",P.mode==="undo");
     paySum();$("m-pay").hidden=false;
   }
-  const paySel=()=>[...document.querySelectorAll("#pay-list input:checked")].map(i=>P.items[i.value]);
+  const payInputs=()=>[...document.querySelectorAll("#pay-list input[data-in]")];
+  const paySel=()=>payInputs().filter(i=>i.checked).map(i=>P.items[i.value]);
   function paySum(){const s=paySel();$("pay-sum").textContent=s.length+" dipilih · "+fmt(sum(s));$("pay-go").disabled=!s.length;
-    const all=document.querySelectorAll("#pay-list input");$("pay-all").checked=all.length&&s.length===all.length}
+    const all=payInputs();$("pay-all").checked=all.length&&s.length===all.length;
+    document.querySelectorAll("#pay-list input[data-grp]").forEach(g=>{const its=all.filter(i=>i.dataset.in===g.dataset.grp),n=its.filter(i=>i.checked).length;
+      g.checked=n>0&&n===its.length;g.indeterminate=n>0&&n<its.length})}
   $("pay-open").onclick=()=>openPay("pay");
   document.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>openPay(b.dataset.pm));
-  $("pay-list").addEventListener("change",paySum);
+  $("pay-list").addEventListener("change",e=>{const g=e.target.dataset.grp;
+    if(g!==undefined)payInputs().filter(i=>i.dataset.in===g).forEach(i=>i.checked=e.target.checked);paySum()});
   $("pay-all").onchange=e=>{document.querySelectorAll("#pay-list input").forEach(i=>i.checked=e.target.checked);paySum()};
   $("pay-go").onclick=()=>{
     const sel=paySel();if(!sel.length)return;
