@@ -480,12 +480,19 @@
       </dl>
     </article>`;
   }
-  function billGroups(rows,canDelete){
+  // o.open: Set platform yang dibuka (null = tidak bisa dilipat, selalu terbuka)
+  function billGroups(rows,canDelete,open){
     const g={};rows.forEach(r=>(g[r.b.platform]=g[r.b.platform]||[]).push(r));
     return Object.keys(g).sort((a,b)=>a.localeCompare(b)).map(p=>{
-      const list=g[p].sort((x,y)=>nextKey(x)-nextKey(y)),late=list.filter(r=>r.st.key==="telat").length;
-      return `<section class="bgroup"><div class="bgroup-h"><b>${esc(p)}</b><span>${list.length} tagihan${late?` <span class="pill crit">${late} terlambat</span>`:""}</span><span class="num">Sisa ${fmt(list.reduce((s,r)=>s+r.i.sisa*r.b.amount,0))}</span></div>
-        <div class="bcards">${list.map(r=>billCard(r,canDelete)).join("")}</div></section>`}).join("");
+      const list=g[p].sort((x,y)=>nextKey(x)-nextKey(y)),late=list.filter(r=>r.st.key==="telat").length,soon=list.filter(r=>r.st.key==="segera").length;
+      const isOpen=!open||open.has(p),n=list[0].i.next;
+      const info=`<b>${esc(p)}</b><span>${list.length} tagihan${late?` <span class="pill crit">${late} terlambat</span>`:""}${soon?` <span class="pill warn">${soon} ≤ 7 hari</span>`:""}</span>`
+        +(open&&n?`<span class="bgroup-next">Terdekat ${String(n.due.getDate()).padStart(2,"0")} ${MON[n.due.getMonth()]}</span>`:"")
+        +`<span class="num">Sisa ${fmt(list.reduce((s,r)=>s+r.i.sisa*r.b.amount,0))}</span>`;
+      const head=open
+        ?`<button type="button" class="bgroup-h toggle" data-grp-toggle="${esc(p)}" aria-expanded="${isOpen}">${info}<svg class="chev" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`
+        :`<div class="bgroup-h">${info}</div>`;
+      return `<section class="bgroup">${head}<div class="bcards"${isOpen?"":" hidden"}>${list.map(r=>billCard(r,canDelete)).join("")}</div></section>`}).join("");
   }
   // ringkasan status sebagai poin cek; klik chip = filter status
   function sumChips(rows,cur,filterId){
@@ -502,10 +509,11 @@
     const fs=$(o.statusId).value,all=billRows($(o.qId).value.trim().toLowerCase(),o.platId?$(o.platId).value:"");
     const rows=fs?all.filter(r=>r.st.key===fs):all;
     $(o.sumId).innerHTML=sumChips(all,fs,o.statusId);
-    $(o.boxId).innerHTML=rows.length?billGroups(rows,o.canDelete)
+    $(o.boxId).innerHTML=rows.length?billGroups(rows,o.canDelete,o.open)
       :`<div class="panel empty">${billsArr().length?"Tidak ada tagihan yang cocok dengan filter.":"Belum ada tagihan. Klik “+ Tambah tagihan”."}</div>`;
   }
-  const LIST_VIEW={qId:"lt-q",statusId:"lt-status",sumId:"lt-sum",boxId:"lt-groups",canDelete:false};
+  // List Tagihan: grup tertutup secara default, dibuka satu per satu
+  const LIST_VIEW={qId:"lt-q",statusId:"lt-status",sumId:"lt-sum",boxId:"lt-groups",canDelete:false,open:new Set()};
   const MASTER_VIEW={qId:"bf-q",platId:"bf-plat",statusId:"bf-status",sumId:"bill-sum",boxId:"bill-cards",canDelete:true};
   const renderListTagihan=()=>renderBillView(LIST_VIEW);
   const renderMasterBills=()=>renderBillView(MASTER_VIEW);
@@ -532,6 +540,9 @@
   $("bill-add").onclick=()=>openBill(null);
   $("lt-add").onclick=()=>openBill(null);
   function onCardClick(e){
+    const tg=e.target.closest("[data-grp-toggle]");
+    if(tg){const p=tg.dataset.grpToggle,o=LIST_VIEW.open,show=!o.has(p);show?o.add(p):o.delete(p);
+      tg.setAttribute("aria-expanded",show);tg.nextElementSibling.hidden=!show;return}
     const ed=e.target.closest("[data-bill-edit]");if(ed)return openBill(ed.dataset.billEdit);
     const del=e.target.closest("[data-bill-del]");if(!del||S.me.role!=="admin")return;
     const b=S.bills[del.dataset.billDel];
@@ -539,6 +550,8 @@
       await Api.deleteBill(b.id);delete S.bills[b.id];await reload("payments");toast("Tagihan dihapus")});
   }
   $("lt-groups").addEventListener("click",onCardClick);
+  $("lt-open-all").onclick=()=>{billsArr().forEach(b=>LIST_VIEW.open.add(b.platform));renderListTagihan()};
+  $("lt-close-all").onclick=()=>{LIST_VIEW.open.clear();renderListTagihan()};
   $("bill-cards").addEventListener("click",onCardClick);
   $("bill-form").addEventListener("submit",async e=>{
     e.preventDefault();

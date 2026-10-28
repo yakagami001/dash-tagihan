@@ -253,7 +253,14 @@ tr.overdue td:first-child{color:var(--crit);font-weight:600}
 .sumchip[aria-pressed="true"] b{color:#fff}
 .sumtot{margin-left:auto;font-size:13px;color:var(--fg-2)}
 .sumtot b{color:var(--navy);font-size:14px}
-.bgroups{display:flex;flex-direction:column;gap:22px}
+.bgroups{display:flex;flex-direction:column;gap:12px}
+.bgroup-h.toggle{width:100%;border:0;text-align:left;cursor:pointer;font:inherit}
+.bgroup-h.toggle:hover{background:var(--navy-3)}
+.bgroup-h .chev{flex:none;color:#fff;transition:transform .15s ease}
+.bgroup-h.toggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.bgroup-h .bgroup-next{color:var(--navy-ink);font-size:12px}
+.bgroup:has(.bcards:not([hidden])){margin-bottom:10px}
+@media (prefers-reduced-motion:reduce){.bgroup-h .chev{transition:none}}
 .bgroup{display:flex;flex-direction:column;gap:12px}
 .bgroup-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;background:var(--navy-2);border-radius:10px;padding:11px 16px}
 .bgroup-h b{color:#fff;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
