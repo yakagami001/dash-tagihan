@@ -6,12 +6,13 @@ Dashboard checklist tagihan & cicilan bulanan: total yang harus dibayar per bula
 
 ```
 docs/                     Front end statis (dipublikasikan GitHub Pages)
-  index.html              Tampilan
-  app.js                  Logika checklist, EWS, chart, form
-  store.js                Lapisan data: Supabase, atau localStorage bila config kosong
-  config.js               URL + anon key Supabase (kosong = mode lokal)
+  index.html              Halaman login, ganti password, dan aplikasi (Dashboard, Master)
+  styles.css              Tema korporat putih + navy
+  app.js                  Alur login/captcha, routing menu, dashboard, master tagihan, setting user
+  api.js                  Akses Supabase (auth, tabel, fungsi admin)
+  config.js               URL + publishable key Supabase
 supabase/
-  migrations/             Skema tabel bills, payments, settings + Row Level Security
+  migrations/             Skema tabel bills, payments, settings, app_users + Row Level Security + fungsi admin
   functions/ews-reminder/ Edge Function pengingat terjadwal via Telegram
   seed.example.sql        Data contoh
   seed.local.sql          Data pribadi (di-.gitignore, tidak ikut ter-commit)
@@ -29,13 +30,20 @@ supabase/
 - `main` — produksi, otomatis dideploy ke GitHub Pages.
 - `dev` — pengembangan. Kerjakan di `dev`, lalu buat PR `dev → main`.
 
+## Login & user
+
+- Login memakai **username + password + captcha**. Username dipetakan ke email internal `<username>@dash-tagihan.local` di Supabase Auth; password disimpan ter-hash (bcrypt).
+- Akun awal: **`admin.tagihan` / `P@ssw0rd`**. Saat login pertama user diarahkan ke halaman ganti password; sebelum diganti, database menolak akses data (`is_active_user()` mensyaratkan `must_reset = false`).
+- Menu **Master → Setting User** (khusus admin): tambah user (password awal `P@ssw0rd`), ubah nama/role/status, reset password ke default, hapus user.
+- Data tagihan dipakai bersama oleh semua user aktif.
+- Captcha dibuat di browser (penghalang login otomatis sederhana) dan login dikunci 60 detik setelah 5 kali gagal. Untuk proteksi di sisi server, aktifkan CAPTCHA protection (hCaptcha/Turnstile) di Supabase Auth.
+
 ## Menyambungkan Supabase
 
 1. Buat project di supabase.com.
-2. Jalankan `supabase/migrations/20261028000000_init.sql` di SQL Editor (atau `supabase db push` via CLI).
-3. Authentication → URL Configuration: tambahkan URL GitHub Pages ke *Site URL* dan *Redirect URLs*.
-4. Isi `docs/config.js` dengan Project URL dan anon key (Project Settings → API). Anon key aman di browser karena RLS hanya mengizinkan baris milik user yang login.
-5. Buka web, login lewat link email, lalu jalankan `seed.local.sql` (ganti `EMAIL_ANDA`) di SQL Editor.
+2. Jalankan berurutan di SQL Editor: `supabase/migrations/20261028000000_init.sql`, lalu `20261029000000_app_users.sql` (atau `supabase db push` via CLI).
+3. Isi `docs/config.js` dengan Project URL dan publishable/anon key (Project Settings → API). Key ini aman di browser karena RLS membatasi akses ke user yang login.
+4. Opsional: jalankan `seed.local.sql` di SQL Editor untuk memasukkan data tagihan awal.
 
 ## Pengingat otomatis (opsional)
 
