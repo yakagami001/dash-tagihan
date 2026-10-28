@@ -315,15 +315,17 @@
     $("chart-range").textContent=pShort(months[0].p)+" – "+pShort(months[CHART_N-1].p);
     $("chart-prev").disabled=S.chartOff<=0;$("chart-next").disabled=S.chartOff>=maxOff;
     // ukuran mengikuti lebar panel supaya grafik tidak membesar/mengecil tak proporsional
-    const W=Math.max(300,Math.round((c.clientWidth||640)-36)),H=230,L=40,B=24,T=10,cw=(W-L)/CHART_N,bw=Math.min(34,cw*.55),ph=H-T-B;
+    const W=Math.max(260,Math.round((c.clientWidth||640)-(c.clientWidth<500?24:36)));
+    // layar sempit (HP): margin kiri & label diperkecil, tahun cukup di judul rentang
+    const narrow=(W-40)/CHART_N<40,L=narrow?30:40,H=narrow?200:230,B=24,T=10,cw=(W-L)/CHART_N,bw=Math.min(34,cw*(narrow?.62:.55)),ph=H-T-B;
     const max=Math.max(1,...months.map(m=>m.t)),step=niceStep(max/3),top=Math.ceil(max/step)*step,y=v=>T+ph*(1-v/top);
     let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Total tagihan per bulan, dibayar dan belum">`;
-    for(let v=0;v<=top+1;v+=step)s+=`<line class="gl" x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${L-6}" y="${y(v)+3}" text-anchor="end">${v?short(v):"0"}</text>`;
+    for(let v=0;v<=top+1;v+=step)s+=`<line class="gl" x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${L-5}" y="${y(v)+3}" text-anchor="end"${narrow?" style=\"font-size:9px\"":""}>${v?short(v):"0"}</text>`;
     months.forEach((m,i)=>{const x=L+i*cw+(cw-bw)/2,sel=m.p===S.period,hp=ph*m.pd/top,hu=ph*(m.t-m.pd)/top,y0=H-B;
       if(m.pd)s+=`<path d="${barPath(x,y0-hp,bw,hp,!(m.t-m.pd))}" fill="var(--good)"/>`;
       if(m.t-m.pd)s+=`<path d="${barPath(x,y0-hp-hu,bw,hu-(m.pd?2:0),true)}" fill="var(--due)"/>`;
-      const mi=pIdx(m.p)%12,yr=(mi===0||i===0)?" '"+String(Math.floor(pIdx(m.p)/12)).slice(2):"";
-      s+=`<text x="${x+bw/2}" y="${H-7}" text-anchor="middle" style="${sel?"fill:var(--navy);font-weight:600":""}">${MON[mi]}${yr}</text>`;
+      const mi=pIdx(m.p)%12,yr=!narrow&&(mi===0||i===0)?" '"+String(Math.floor(pIdx(m.p)/12)).slice(2):"";
+      s+=`<text x="${x+bw/2}" y="${H-7}" text-anchor="middle" style="${narrow?"font-size:9px;":""}${sel?"fill:var(--navy);font-weight:600":""}">${MON[mi]}${yr}</text>`;
       s+=`<rect x="${L+i*cw}" y="0" width="${cw}" height="${H}" fill="transparent" data-i="${i}" style="cursor:pointer"/>`});
     c.innerHTML=s+`</svg><div class="tip" id="tip" hidden></div>`;
     const r0=c.querySelector("rect[data-i]");S.chartCw=r0?r0.getBoundingClientRect().width:0;
