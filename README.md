@@ -34,6 +34,7 @@ supabase/
 
 - Login memakai **username + password + captcha**. Username dipetakan ke email internal `<username>@dash-tagihan.local` di Supabase Auth; password disimpan ter-hash (bcrypt).
 - Akun awal: **`admin.tagihan` / `P@ssw0rd`**. Saat login pertama user diarahkan ke halaman ganti password; sebelum diganti, database menolak akses data (`is_active_user()` mensyaratkan `must_reset = false`).
+- Role **user** hanya melihat Dashboard & Kalkulator Budget dan boleh konfirmasi pembayaran. Menu **Master** (Data Master Tagihan, Setting User) khusus **admin**, juga dikunci di database (`20261030000000_role_access.sql`).
 - Menu **Master → Setting User** (khusus admin): tambah user (password awal `P@ssw0rd`), ubah nama/role/status, reset password ke default, hapus user.
 - Data tagihan dipakai bersama oleh semua user aktif.
 - Captcha dibuat di browser (penghalang login otomatis sederhana) dan login dikunci 60 detik setelah 5 kali gagal. Untuk proteksi di sisi server, aktifkan CAPTCHA protection (hCaptcha/Turnstile) di Supabase Auth.
@@ -41,7 +42,7 @@ supabase/
 ## Menyambungkan Supabase
 
 1. Buat project di supabase.com.
-2. Jalankan berurutan di SQL Editor: `supabase/migrations/20261028000000_init.sql`, lalu `20261029000000_app_users.sql` (atau `supabase db push` via CLI).
+2. Jalankan berurutan di SQL Editor: `supabase/migrations/20261028000000_init.sql`, `20261029000000_app_users.sql`, lalu `20261030000000_role_access.sql` (atau `supabase db push` via CLI).
 3. Isi `docs/config.js` dengan Project URL dan publishable/anon key (Project Settings → API). Key ini aman di browser karena RLS membatasi akses ke user yang login.
 4. Opsional: jalankan `seed.local.sql` di SQL Editor untuk memasukkan data tagihan awal.
 

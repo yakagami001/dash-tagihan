@@ -5,7 +5,11 @@
 (function () {
   const cfg = window.DASH_CONFIG || {};
   const ok = !!(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
-  const sb = ok ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
+  // lock no-op: kunci navigator.locks bawaan supabase-js kadang menggantung panggilan auth
+  // sampai halaman di-refresh (login terlihat "loading" terus).
+  const sb = ok ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, lock: async (_n, _t, fn) => fn() },
+  }) : null;
   const DOMAIN = "dash-tagihan.local";
 
   const chk = r => { if (r.error) throw r.error; return r.data; };
@@ -23,9 +27,9 @@
       return chk(await sb.auth.signInWithPassword({ email, password }));
     },
     async logout() { await sb.auth.signOut(); },
-    async me() {
-      const s = await this.session(); if (!s) return null;
-      const rows = chk(await sb.from("app_users").select("*").eq("user_id", s.user.id).limit(1));
+    async me(uid) {
+      if (!uid) { const s = await this.session(); if (!s) return null; uid = s.user.id; }
+      const rows = chk(await sb.from("app_users").select("*").eq("user_id", uid).limit(1));
       return rows[0] || null;
     },
     async changePassword(pw) {

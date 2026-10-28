@@ -22,7 +22,7 @@
   const PAGES={
     "dashboard":{title:"Dashboard",crumb:"Menu utama"},
     "kalkulator":{title:"Kalkulator Budget",crumb:"Menu utama"},
-    "master-tagihan":{title:"Data Master Tagihan",crumb:"Master"},
+    "master-tagihan":{title:"Data Master Tagihan",crumb:"Master",admin:true},
     "master-user":{title:"Setting User",crumb:"Master",admin:true},
   };
 
@@ -71,6 +71,8 @@
   $("cap-refresh").onclick=newCaptcha;
 
   /* ================= auth flow ================= */
+  // Batas waktu panggilan jaringan: kalau macet, jangan biarkan tombol "Memeriksa…" berputar terus.
+  const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),ms))]);
   function toLogin(msg){show("login");newCaptcha();setErr("l-err",msg);$("l-pass").value="";setTimeout(()=>$("l-user").focus(),0)}
   async function boot(){
     if(!Api.configured){show("login");newCaptcha();$("cfg-err").hidden=false;$("l-submit").disabled=true;return}
@@ -78,9 +80,10 @@
     if(!s) return toLogin("");
     await afterAuth();
   }
-  async function afterAuth(){
+  async function afterAuth(uid){
     let me=null;
-    try{me=await Api.me()}catch(e){await Api.logout();return toLogin(errText(e))}
+    try{me=await withTimeout(Api.me(uid),12000)}
+    catch(e){if(e.message==="timeout"){location.reload();return}await Api.logout();return toLogin(errText(e))}
     if(!me||!me.active){await Api.logout();return toLogin(me?"Akun Anda dinonaktifkan. Hubungi admin.":"Akun tidak terdaftar di aplikasi ini.")}
     S.me=me;
     if(me.must_reset){show("reset");$("reset-who").textContent="Masuk sebagai "+me.username;$("r-pass").value="";$("r-pass2").value="";checkRules();setTimeout(()=>$("r-pass").focus(),0);return}
@@ -95,8 +98,11 @@
     if(!c) return setErr("l-err","Ketik kode captcha.");
     if(c!==S.captcha){newCaptcha();return setErr("l-err","Kode captcha salah. Kode baru sudah dibuat.")}
     const b=$("l-submit");b.disabled=true;b.textContent="Memeriksa…";
-    try{await Api.login(u,p);S.fails=0;await afterAuth()}
-    catch(err){S.fails++;if(S.fails>=5){S.lockUntil=Date.now()+60e3;S.fails=0}newCaptcha();setErr("l-err",errText(err))}
+    try{const r=await withTimeout(Api.login(u,p),15000);S.fails=0;await afterAuth(r&&r.user&&r.user.id)}
+    catch(err){
+      if(err.message==="timeout"){if(await Api.session().catch(()=>null)){location.reload();return}
+        newCaptcha();setErr("l-err","Server lambat merespons. Coba lagi.");return}
+      S.fails++;if(S.fails>=5){S.lockUntil=Date.now()+60e3;S.fails=0}newCaptcha();setErr("l-err",errText(err))}
     finally{b.disabled=false;b.textContent="Masuk"}
   });
 
@@ -108,7 +114,7 @@
   $("reset-form").addEventListener("submit",async e=>{
     e.preventDefault(); if(!checkRules()) return;
     const b=$("r-submit");b.disabled=true;setErr("r-err","");
-    try{await Api.changePassword($("r-pass").value);S.me.must_reset=false;toast("Password berhasil diganti.");enterApp()}
+    try{await withTimeout(Api.changePassword($("r-pass").value),15000);S.me.must_reset=false;toast("Password berhasil diganti.");enterApp()}
     catch(err){setErr("r-err",errText(err));b.disabled=false}
   });
 
@@ -122,7 +128,9 @@
     const me=S.me, name=me.full_name||me.username;
     $("who-name").textContent=name;$("who-role").textContent=(me.role==="admin"?"Administrator":"User")+" · "+me.username;
     $("who-av").textContent=name.split(/[\s.]+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("");
-    $("nav-user").hidden=me.role!=="admin";
+    const admin=me.role==="admin";
+    ["nav-master","nav-bill","nav-user"].forEach(id=>$(id).hidden=!admin);
+    applyNav();
     route(); loadData();
     if(!S.watching){S.watching=true;try{Api.watch(()=>reload("bills"),()=>reload("payments"))}catch(e){}}
   }
@@ -134,12 +142,33 @@
     Object.keys(PAGES).forEach(k=>$("page-"+k).hidden=k!==p);
     document.querySelectorAll(".nav a").forEach(a=>{if(a.dataset.page===p)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
     $("page-title").textContent=PAGES[p].title;$("crumb").textContent=PAGES[p].crumb;
-    $("view-app").classList.remove("nav-open");
+    if(mq.matches)setNav(false);
     renderPage();
     if(p==="master-user") loadUsers();
   }
   window.addEventListener("hashchange",route);
-  $("menu-btn").onclick=()=>$("view-app").classList.toggle("nav-open");
+  /* ---------- tampil/sembunyi panel samping ----------
+     HP (<=860px): panel melayang + latar gelap, tertutup saat pilih menu / klik latar / Esc.
+     Desktop: panel bisa disembunyikan, pilihan diingat di browser ini. */
+  const mq=matchMedia("(max-width:860px)"),NAVKEY="dash-tagihan:nav";
+  const navIsOpen=()=>mq.matches?$("view-app").classList.contains("nav-open"):!$("view-app").classList.contains("nav-collapsed");
+  function setNav(open){
+    const app=$("view-app");
+    if(mq.matches){app.classList.toggle("nav-open",open);$("side-backdrop").hidden=!open}
+    else{app.classList.toggle("nav-collapsed",!open);try{localStorage.setItem(NAVKEY,open?"1":"0")}catch(e){}}
+    $("menu-btn").setAttribute("aria-expanded",String(open));
+  }
+  function applyNav(){
+    const app=$("view-app");app.classList.remove("nav-open");$("side-backdrop").hidden=true;
+    let pref="1";try{pref=localStorage.getItem(NAVKEY)??"1"}catch(e){}
+    app.classList.toggle("nav-collapsed",pref==="0");
+    $("menu-btn").setAttribute("aria-expanded",String(navIsOpen()));
+  }
+  $("menu-btn").onclick=()=>setNav(!navIsOpen());
+  $("side-backdrop").onclick=()=>setNav(false);
+  document.querySelectorAll(".nav a").forEach(a=>a.addEventListener("click",()=>{if(mq.matches)setNav(false)}));
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&mq.matches&&navIsOpen())setNav(false)});
+  mq.addEventListener("change",applyNav);
 
   async function loadData(){
     try{const [b,p]=await Promise.all([Api.bills(),Api.payments()]);S.bills=b;S.payments=p;S.loaded=true;renderPage();maybeNotify()}
