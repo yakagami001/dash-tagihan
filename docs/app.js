@@ -27,7 +27,7 @@
     "master-user":{title:"Setting User",crumb:"Master",admin:true},
   };
 
-  const S={me:null,bills:{},payments:{},users:[],settings:{cutoffDay:25,warnDays:3},period:null,filter:"all",group:"platform",dashOpen:new Set(),ewsAll:false,
+  const S={me:null,bills:{},payments:{},users:[],settings:{cutoffDay:25,warnDays:3},period:null,filter:"all",group:"platform",dashOpen:new Set(),ewsAll:false,chartOff:0,chartCw:0,chartDragged:false,
     page:"dashboard",editBill:null,editUser:null,loaded:false,toastShown:false,watching:false,captcha:"",fails:0,lockUntil:0};
 
   function currentPeriod(){let i=today.getFullYear()*12+today.getMonth();if(today.getDate()>=S.settings.cutoffDay)i++;return idxP(i)}
@@ -289,27 +289,51 @@
   function niceStep(x){const p=Math.pow(10,Math.floor(Math.log10(x)));const n=x/p;return(n<=1?1:n<=2?2:n<=5?5:10)*p}
   function barPath(x,y,w,h,round){if(h<=0)return"";const r=round?Math.min(4,h,w/2):0;
     return `M${x},${y+h}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h}Z`}
+  // Jendela grafik: H-1 bulan berjalan + 12 bulan (13 batang). Bisa digeser ke kanan
+  // sampai bulan terakhir yang masih punya cicilan, dan kembali ke posisi awal.
+  const CHART_N=13;
+  function chartBounds(){
+    const start=pIdx(currentPeriod())-1;
+    const last=billsArr().reduce((m,b)=>Math.max(m,pIdx(b.startPeriod)+b.tenor-1),start);
+    return {start,maxOff:Math.max(0,last-(start+CHART_N-1))};
+  }
+  function shiftChart(d){const {maxOff}=chartBounds(),n=Math.min(maxOff,Math.max(0,S.chartOff+d));if(n!==S.chartOff){S.chartOff=n;renderChart()}}
+  $("chart-prev").onclick=()=>shiftChart(-3);
+  $("chart-next").onclick=()=>shiftChart(3);
+  // seret / geser jari di area grafik
+  (()=>{const c=$("chart");let x0=null,off0=0;
+    c.addEventListener("pointerdown",e=>{x0=e.clientX;off0=S.chartOff;S.chartDragged=false});
+    c.addEventListener("pointermove",e=>{if(x0===null||!S.chartCw)return;const d=Math.round((x0-e.clientX)/S.chartCw);
+      if(d){S.chartDragged=true;const {maxOff}=chartBounds(),n=Math.min(maxOff,Math.max(0,off0+d));if(n!==S.chartOff){S.chartOff=n;renderChart()}}});
+    ["pointerup","pointercancel","pointerleave"].forEach(t=>c.addEventListener(t,()=>{x0=null}));
+  })();
   function renderChart(){
-    const c=$("chart"),base=pIdx(S.period),months=[];
-    for(let k=-5;k<=6;k++){const p=idxP(base+k),its=itemsFor(p);months.push({p,t:sum(its),pd:sum(its.filter(i=>i.paid))})}
+    const c=$("chart"),{start,maxOff}=chartBounds(),months=[];
+    S.chartOff=Math.min(S.chartOff||0,maxOff);
+    const base=start+S.chartOff;
+    for(let k=0;k<CHART_N;k++){const p=idxP(base+k),its=itemsFor(p);months.push({p,t:sum(its),pd:sum(its.filter(i=>i.paid))})}
+    $("chart-range").textContent=pShort(months[0].p)+" – "+pShort(months[CHART_N-1].p);
+    $("chart-prev").disabled=S.chartOff<=0;$("chart-next").disabled=S.chartOff>=maxOff;
     // ukuran mengikuti lebar panel supaya grafik tidak membesar/mengecil tak proporsional
-    const W=Math.max(300,Math.round((c.clientWidth||640)-36)),H=230,L=40,B=24,T=10,cw=(W-L)/12,bw=Math.min(34,cw*.55),ph=H-T-B;
+    const W=Math.max(300,Math.round((c.clientWidth||640)-36)),H=230,L=40,B=24,T=10,cw=(W-L)/CHART_N,bw=Math.min(34,cw*.55),ph=H-T-B;
     const max=Math.max(1,...months.map(m=>m.t)),step=niceStep(max/3),top=Math.ceil(max/step)*step,y=v=>T+ph*(1-v/top);
     let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Total tagihan per bulan, dibayar dan belum">`;
     for(let v=0;v<=top+1;v+=step)s+=`<line class="gl" x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${L-6}" y="${y(v)+3}" text-anchor="end">${v?short(v):"0"}</text>`;
     months.forEach((m,i)=>{const x=L+i*cw+(cw-bw)/2,sel=m.p===S.period,hp=ph*m.pd/top,hu=ph*(m.t-m.pd)/top,y0=H-B;
       if(m.pd)s+=`<path d="${barPath(x,y0-hp,bw,hp,!(m.t-m.pd))}" fill="var(--good)"/>`;
       if(m.t-m.pd)s+=`<path d="${barPath(x,y0-hp-hu,bw,hu-(m.pd?2:0),true)}" fill="var(--due)"/>`;
-      s+=`<text x="${x+bw/2}" y="${H-7}" text-anchor="middle" style="${sel?"fill:var(--navy);font-weight:600":""}">${MON[pIdx(m.p)%12]}</text>`;
+      const mi=pIdx(m.p)%12,yr=(mi===0||i===0)?" '"+String(Math.floor(pIdx(m.p)/12)).slice(2):"";
+      s+=`<text x="${x+bw/2}" y="${H-7}" text-anchor="middle" style="${sel?"fill:var(--navy);font-weight:600":""}">${MON[mi]}${yr}</text>`;
       s+=`<rect x="${L+i*cw}" y="0" width="${cw}" height="${H}" fill="transparent" data-i="${i}" style="cursor:pointer"/>`});
     c.innerHTML=s+`</svg><div class="tip" id="tip" hidden></div>`;
+    const r0=c.querySelector("rect[data-i]");S.chartCw=r0?r0.getBoundingClientRect().width:0;
     const tip=$("tip");
     c.querySelectorAll("rect[data-i]").forEach(r=>{
       r.addEventListener("mouseenter",()=>{const m=months[+r.dataset.i],bb=r.getBoundingClientRect(),cb=c.getBoundingClientRect();
         tip.innerHTML=`<b>${pLabel(m.p)}</b><br>Total <span class="num">${fmt(m.t)}</span><br>Dibayar <span class="num">${fmt(m.pd)}</span><br>Belum <span class="num">${fmt(m.t-m.pd)}</span>`;
         tip.style.left=Math.min(Math.max(bb.left-cb.left+bb.width/2,80),cb.width-80)+"px";tip.style.top=(bb.top-cb.top+20)+"px";tip.hidden=false});
       r.addEventListener("mouseleave",()=>tip.hidden=true);
-      r.addEventListener("click",()=>{S.period=months[+r.dataset.i].p;renderDashboard()});
+      r.addEventListener("click",()=>{if(S.chartDragged)return;S.period=months[+r.dataset.i].p;renderDashboard()});
     });
   }
 

@@ -150,7 +150,12 @@
 
       <div class="charts">
         <section class="panel" aria-label="Histori dan proyeksi">
-          <div class="panel-h"><h2>Histori &amp; proyeksi 12 bulan</h2><span class="hint">Klik batang untuk pindah periode</span></div>
+          <div class="panel-h"><h2>Histori &amp; proyeksi 12 bulan</h2><span class="hint" id="chart-range"></span>
+            <div class="chart-nav">
+              <button type="button" class="icon-btn" id="chart-prev" title="Geser ke bulan sebelumnya" aria-label="Geser grafik ke kiri"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M10 3 5 8l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <button type="button" class="icon-btn" id="chart-next" title="Geser ke bulan berikutnya" aria-label="Geser grafik ke kanan"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="m6 3 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            </div>
+          </div>
           <div class="chart" id="chart"></div>
           <div class="legend"><span><i style="background:var(--good)"></i>Dibayar</span><span><i style="background:var(--due)"></i>Belum</span></div>
         </section>

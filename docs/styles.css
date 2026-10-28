@@ -416,3 +416,7 @@ tr.overdue td:first-child{color:var(--crit);font-weight:600}
   .kpis-3 .kpi .v{font-size:17px;white-space:normal;overflow-wrap:anywhere}
   .kpis-3 .kpi{padding:14px 14px}
 }
+.chart-nav{display:flex;gap:4px}
+.icon-btn:disabled{opacity:.4;cursor:not-allowed;background:var(--surface);color:var(--muted);border-color:var(--line)}
+.chart{touch-action:pan-y;user-select:none;cursor:grab}
+.chart:active{cursor:grabbing}
