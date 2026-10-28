@@ -515,7 +515,7 @@
   // List Tagihan: grup tertutup secara default, dibuka satu per satu
   const LIST_VIEW={qId:"lt-q",statusId:"lt-status",sumId:"lt-sum",boxId:"lt-groups",canDelete:false,open:new Set()};
   const MASTER_VIEW={qId:"bf-q",platId:"bf-plat",statusId:"bf-status",sumId:"bill-sum",boxId:"bill-cards",canDelete:true};
-  const renderListTagihan=()=>renderBillView(LIST_VIEW);
+  const renderListTagihan=()=>{renderBillView(LIST_VIEW);syncToggleAll()};
   const renderMasterBills=()=>renderBillView(MASTER_VIEW);
   ["lt-q","lt-status"].forEach(id=>$(id).addEventListener("input",renderListTagihan));
   ["bf-q","bf-plat","bf-status"].forEach(id=>$(id).addEventListener("input",renderMasterBills));
@@ -542,7 +542,7 @@
   function onCardClick(e){
     const tg=e.target.closest("[data-grp-toggle]");
     if(tg){const p=tg.dataset.grpToggle,o=LIST_VIEW.open,show=!o.has(p);show?o.add(p):o.delete(p);
-      tg.setAttribute("aria-expanded",show);tg.nextElementSibling.hidden=!show;return}
+      tg.setAttribute("aria-expanded",show);tg.nextElementSibling.hidden=!show;syncToggleAll();return}
     const ed=e.target.closest("[data-bill-edit]");if(ed)return openBill(ed.dataset.billEdit);
     const del=e.target.closest("[data-bill-del]");if(!del||S.me.role!=="admin")return;
     const b=S.bills[del.dataset.billDel];
@@ -550,8 +550,10 @@
       await Api.deleteBill(b.id);delete S.bills[b.id];await reload("payments");toast("Tagihan dihapus")});
   }
   $("lt-groups").addEventListener("click",onCardClick);
-  $("lt-open-all").onclick=()=>{billsArr().forEach(b=>LIST_VIEW.open.add(b.platform));renderListTagihan()};
-  $("lt-close-all").onclick=()=>{LIST_VIEW.open.clear();renderListTagihan()};
+  // satu tombol: buka semua grup, atau tutup semua jika semuanya sudah terbuka
+  const allOpen=()=>{const ps=new Set(billsArr().map(b=>b.platform));return ps.size>0&&[...ps].every(p=>LIST_VIEW.open.has(p))};
+  function syncToggleAll(){const a=allOpen(),b=$("lt-toggle-all");b.textContent=a?"Tutup semua":"Buka semua";b.setAttribute("aria-pressed",a)}
+  $("lt-toggle-all").onclick=()=>{if(allOpen())LIST_VIEW.open.clear();else billsArr().forEach(b=>LIST_VIEW.open.add(b.platform));renderListTagihan()};
   $("bill-cards").addEventListener("click",onCardClick);
   $("bill-form").addEventListener("submit",async e=>{
     e.preventDefault();
