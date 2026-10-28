@@ -85,8 +85,12 @@ input:focus,select:focus{border-color:var(--accent);outline:none;box-shadow:0 0 
 .menu-btn:hover{background:var(--surface-2)}
 .side-backdrop{position:fixed;inset:0;z-index:19;background:rgba(11,42,74,.45)}
 @media (min-width:861px){
-  .shell.nav-collapsed{grid-template-columns:minmax(0,1fr)}
+  /* panel samping terkunci di layar; hanya konten yang di-scroll */
+  .shell{display:block}
+  .side{position:fixed;top:0;left:0;bottom:0;width:var(--side);height:auto;z-index:10;overflow-y:auto}
+  .main{margin-left:var(--side);min-height:100vh}
   .shell.nav-collapsed .side{display:none}
+  .shell.nav-collapsed .main{margin-left:0}
   .side-backdrop{display:none!important}
 }
 .who{display:flex;align-items:center;gap:10px;font-size:13px}
