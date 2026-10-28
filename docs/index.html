@@ -93,6 +93,9 @@
       <a href="#kalkulator" data-page="kalkulator">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="2" width="12" height="14" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="5.5" y="4.5" width="7" height="3" rx=".8" stroke="currentColor" stroke-width="1.4"/><path d="M6 10.5h.01M9 10.5h.01M12 10.5h.01M6 13h.01M9 13h.01M12 13h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         Kalkulator Budget</a>
+      <a href="#list-tagihan" data-page="list-tagihan">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="6" height="5" rx="1.3" stroke="currentColor" stroke-width="1.6"/><rect x="10" y="3" width="6" height="5" rx="1.3" stroke="currentColor" stroke-width="1.6"/><rect x="2" y="10" width="6" height="5" rx="1.3" stroke="currentColor" stroke-width="1.6"/><rect x="10" y="10" width="6" height="5" rx="1.3" stroke="currentColor" stroke-width="1.6"/></svg>
+        List Tagihan</a>
       <span class="sec" id="nav-master">Master</span>
       <a href="#master-tagihan" data-page="master-tagihan" id="nav-bill">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="2" width="12" height="14" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M6 6h6M6 9h6M6 12h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -228,18 +231,32 @@
     <!-- Master tagihan -->
     <main class="content" id="page-master-tagihan" hidden>
       <section class="panel">
-        <div class="panel-h"><h2>Daftar tagihan</h2><button class="btn primary" id="bill-add">+ Tambah tagihan</button></div>
+        <div class="panel-h"><h2>Data master tagihan</h2><span class="hint">Ubah dan hapus tagihan (khusus admin)</span><button class="btn primary" id="bill-add">+ Tambah tagihan</button></div>
         <div class="filters">
           <input id="bf-q" type="search" placeholder="Cari platform atau keterangan">
           <select id="bf-plat" aria-label="Filter platform"><option value="">Semua platform</option></select>
-          <select id="bf-status" aria-label="Filter status"><option value="">Semua status</option><option value="aktif">Aktif</option><option value="lunas">Lunas</option></select>
+          <select id="bf-status" aria-label="Filter status">
+            <option value="">Semua status</option><option value="telat">Terlambat</option><option value="segera">Jatuh tempo ≤ 7 hari</option><option value="aktif">Aktif</option><option value="lunas">Lunas</option>
+          </select>
         </div>
-        <div class="tbl-wrap cards"><table>
-          <thead><tr><th>Platform</th><th>Keterangan</th><th class="r">Nominal / bln</th><th>Tgl jatuh tempo</th><th>Periode</th><th class="r">Terbayar</th><th class="r">Sisa nominal</th><th>Status</th><th class="r">Aksi</th></tr></thead>
-          <tbody id="bill-rows"><tr><td colspan="9" class="empty">Memuat…</td></tr></tbody>
-          <tfoot id="bill-foot"></tfoot>
-        </table></div>
       </section>
+      <div class="sum-chips" id="bill-sum"></div>
+      <div class="bgroups" id="bill-cards"><div class="empty">Memuat…</div></div>
+    </main>
+
+    <!-- List tagihan (semua role: lihat, tambah, ubah) -->
+    <main class="content" id="page-list-tagihan" hidden>
+      <section class="panel">
+        <div class="panel-h"><h2>List tagihan</h2><span class="hint">Per platform. Status mengikuti cicilan berikutnya yang belum dibayar.</span><button class="btn primary" id="lt-add">+ Tambah tagihan</button></div>
+        <div class="filters">
+          <input id="lt-q" type="search" placeholder="Cari platform atau keterangan">
+          <select id="lt-status" aria-label="Filter status">
+            <option value="">Semua status</option><option value="telat">Terlambat</option><option value="segera">Jatuh tempo ≤ 7 hari</option><option value="aktif">Aktif</option><option value="lunas">Lunas</option>
+          </select>
+        </div>
+      </section>
+      <div class="sum-chips" id="lt-sum"></div>
+      <div class="bgroups" id="lt-groups"><div class="empty">Memuat…</div></div>
     </main>
 
     <!-- Master user -->

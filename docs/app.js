@@ -22,6 +22,7 @@
   const PAGES={
     "dashboard":{title:"Dashboard",crumb:"Menu utama"},
     "kalkulator":{title:"Kalkulator Budget",crumb:"Menu utama"},
+    "list-tagihan":{title:"List Tagihan",crumb:"Menu utama"},
     "master-tagihan":{title:"Data Master Tagihan",crumb:"Master",admin:true},
     "master-user":{title:"Setting User",crumb:"Master",admin:true},
   };
@@ -175,7 +176,7 @@
     catch(e){toast("Gagal memuat data: "+errText(e))}
   }
   async function reload(which){try{if(which==="bills")S.bills=await Api.bills();else S.payments=await Api.payments();renderPage()}catch(e){}}
-  function renderPage(){if(S.page==="dashboard")renderDashboard();if(S.page==="kalkulator")renderCalc();if(S.page==="master-tagihan")renderMasterBills();}
+  function renderPage(){if(S.page==="dashboard")renderDashboard();if(S.page==="kalkulator")renderCalc();if(S.page==="list-tagihan")renderListTagihan();if(S.page==="master-tagihan")renderMasterBills();}
 
   /* ================= jadwal cicilan ================= */
   function inst(b,p){
@@ -433,35 +434,88 @@
     $("c-plat-sum").innerHTML=keys.map(k=>`<div class="plat-row"><div class="top2"><b>${esc(k)}</b><span class="num">${fmt(g[k])} · ${need?Math.round(g[k]/need*100):0}%</span></div><div class="stack"><i style="width:${g[k]/max*100}%;background:var(--navy)"></i></div></div>`).join("")||'<div class="hint">Tidak ada data di rentang ini.</div>';
   }
 
-  /* ================= master tagihan ================= */
+  /* ================= kartu tagihan: List Tagihan (semua role) & Master (admin) ================= */
   function billInfo(b){
-    const s=pIdx(b.startPeriod);let paid=0;
-    for(let k=0;k<b.tenor;k++)if(S.payments[b.id+"__"+idxP(s+k)])paid++;
-    return {paid,sisa:b.tenor-paid,end:idxP(s+b.tenor-1)};
+    const s=pIdx(b.startPeriod);let paid=0,next=null;
+    for(let k=0;k<b.tenor;k++){const p=idxP(s+k);if(S.payments[b.id+"__"+p])paid++;else if(!next)next=inst(b,p)}
+    return {paid,sisa:b.tenor-paid,end:idxP(s+b.tenor-1),next};
   }
-  ["bf-q","bf-plat","bf-status"].forEach(id=>$(id).addEventListener("input",renderMasterBills));
-  function renderMasterBills(){
+  // status kartu mengikuti cicilan berikutnya yang belum dibayar
+  function cardStatus(i){
+    if(!i.next) return {key:"lunas",cls:"good",txt:"Lunas"};
+    const st=status(i.next),d=st.d;
+    const key=d<0?"telat":d<=7?"segera":"aktif";
+    return {key,cls:STATUS_CLS[key],txt:d<0?"Terlambat "+(-d)+" hari":d===0?"Jatuh tempo hari ini":d+" hari lagi"};
+  }
+  const STATUS_LABEL={telat:"Terlambat",segera:"Jatuh tempo ≤ 7 hari",aktif:"Aktif",lunas:"Lunas"};
+  const STATUS_CLS={telat:"crit",segera:"warn",aktif:"soon",lunas:"good"};
+  const ICON_EDIT=`<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M10.8 2.7l2.5 2.5-7.6 7.6-3.2.7.7-3.2 7.6-7.6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+  const ICON_DEL=`<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const nextKey=r=>r.i.next?r.i.next.due.getTime():9e15;
+
+  function billRows(q,fp){
+    return billsArr().map(b=>{const i=billInfo(b);return {b,i,st:cardStatus(i)}})
+      .filter(({b})=>(!q||(b.platform+" "+b.note).toLowerCase().includes(q))&&(!fp||b.platform===fp));
+  }
+  function billCard({b,i,st},canDelete){
+    const n=i.next,pct=Math.round(i.paid/b.tenor*100);
+    return `<article class="bcard ${st.cls}">
+      <header class="bcard-h">
+        <div class="bcard-t"><b>${esc(b.note||"Cicilan "+b.platform)}</b><span class="num">${fmt(b.amount)} / bulan</span></div>
+        <div class="bcard-acts"><button type="button" class="icon-btn" data-bill-edit="${esc(b.id)}" title="Ubah tagihan" aria-label="Ubah ${esc(b.note||b.platform)}">${ICON_EDIT}</button>${canDelete?`<button type="button" class="icon-btn danger" data-bill-del="${esc(b.id)}" title="Hapus tagihan" aria-label="Hapus ${esc(b.note||b.platform)}">${ICON_DEL}</button>`:""}</div>
+      </header>
+      <div class="bcard-due">
+        <span class="lbl">${n?"Jatuh tempo berikutnya":"Status cicilan"}</span>
+        <strong>${n?`${String(n.due.getDate()).padStart(2,"0")} ${MON[n.due.getMonth()]} ${n.due.getFullYear()}`:"Lunas"}</strong>
+        <span class="pill ${st.cls}">${st.txt}</span>
+      </div>
+      <div class="bcard-prog">
+        <div class="row2"><span class="lbl">Sisa cicilan</span><b class="num">${i.sisa} <small>/ ${b.tenor}x</small></b></div>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <span class="hint">${i.paid} dari ${b.tenor} terbayar${n?" · berikutnya cicilan ke-"+n.ke:""}</span>
+      </div>
+      <dl class="bcard-meta">
+        <div><dt>Sisa nominal</dt><dd class="num">${fmt(i.sisa*b.amount)}</dd></div>
+        <div><dt>Periode</dt><dd>${pShort(b.startPeriod)}${b.tenor>1?" – "+pShort(i.end):""}</dd></div>
+      </dl>
+    </article>`;
+  }
+  function billGroups(rows,canDelete){
+    const g={};rows.forEach(r=>(g[r.b.platform]=g[r.b.platform]||[]).push(r));
+    return Object.keys(g).sort((a,b)=>a.localeCompare(b)).map(p=>{
+      const list=g[p].sort((x,y)=>nextKey(x)-nextKey(y)),late=list.filter(r=>r.st.key==="telat").length;
+      return `<section class="bgroup"><div class="bgroup-h"><b>${esc(p)}</b><span>${list.length} tagihan${late?` <span class="pill crit">${late} terlambat</span>`:""}</span><span class="num">Sisa ${fmt(list.reduce((s,r)=>s+r.i.sisa*r.b.amount,0))}</span></div>
+        <div class="bcards">${list.map(r=>billCard(r,canDelete)).join("")}</div></section>`}).join("");
+  }
+  // ringkasan status sebagai poin cek; klik chip = filter status
+  function sumChips(rows,cur,filterId){
+    const c={telat:0,segera:0,aktif:0,lunas:0};rows.forEach(r=>c[r.st.key]++);
+    const tot=rows.reduce((s,r)=>s+r.i.sisa*r.b.amount,0);
+    return Object.keys(c).map(k=>`<button type="button" class="sumchip ${STATUS_CLS[k]}" data-chip="${k}" data-target="${filterId}" aria-pressed="${cur===k}"><i></i>${STATUS_LABEL[k]} <b class="num">${c[k]}</b></button>`).join("")
+      +`<span class="sumtot">Total sisa <b class="num">${fmt(tot)}</b></span>`;
+  }
+  function renderBillView(o){
     const plats=[...new Set(billsArr().map(b=>b.platform))].sort();
-    const sel=$("bf-plat"),cur=sel.value;
-    sel.innerHTML=`<option value="">Semua platform</option>`+plats.map(p=>`<option${p===cur?" selected":""}>${esc(p)}</option>`).join("");
     $("plat-list").innerHTML=plats.map(p=>`<option value="${esc(p)}">`).join("");
+    if(o.platId){const sel=$(o.platId),cur=sel.value;sel.innerHTML=`<option value="">Semua platform</option>`+plats.map(p=>`<option${p===cur?" selected":""}>${esc(p)}</option>`).join("")}
     if(!S.loaded)return;
-    const q=$("bf-q").value.trim().toLowerCase(),fp=$("bf-plat").value,fs=$("bf-status").value;
-    const rows=billsArr().map(b=>({b,i:billInfo(b)}))
-      .filter(({b,i})=>(!q||(b.platform+" "+b.note).toLowerCase().includes(q))&&(!fp||b.platform===fp)&&(!fs||(fs==="lunas"?i.sisa===0:i.sisa>0)))
-      .sort((x,y)=>x.b.platform.localeCompare(y.b.platform)||x.b.dueDay-y.b.dueDay);
-    if(!rows.length){$("bill-rows").innerHTML=`<tr><td colspan="9" class="empty">${billsArr().length?"Tidak ada tagihan yang cocok dengan filter.":"Belum ada tagihan. Klik “+ Tambah tagihan”."}</td></tr>`;$("bill-foot").innerHTML="";return}
-    $("bill-rows").innerHTML=rows.map(({b,i})=>`<tr>
-      <td><b>${esc(b.platform)}</b></td><td>${esc(b.note)||'<span class="hint">—</span>'}</td>
-      <td class="r num">${fmt(b.amount)}</td><td>Tgl ${b.dueDay} tiap bulan</td>
-      <td>${pShort(b.startPeriod)}${b.tenor>1?" – "+pShort(i.end):""}</td>
-      <td class="r num">${i.paid}/${b.tenor}</td><td class="r num">${fmt(i.sisa*b.amount)}</td>
-      <td>${i.sisa?`<span class="pill soon">Aktif · sisa ${i.sisa}x</span>`:`<span class="pill good">Lunas</span>`}</td>
-      <td><div class="acts"><button class="btn ghost" data-bill-edit="${esc(b.id)}">Ubah</button><button class="btn ghost danger" data-bill-del="${esc(b.id)}">Hapus</button></div></td></tr>`).join("");
-    labelize("bill-rows");
-    const act=rows.filter(r=>r.i.sisa>0);
-    $("bill-foot").innerHTML=`<tr><td colspan="2">${rows.length} tagihan · ${act.length} aktif</td><td class="r num" data-label="Nominal aktif / bln">${fmt(act.reduce((s,r)=>s+r.b.amount,0))}</td><td colspan="3"></td><td class="r num" data-label="Total sisa nominal">${fmt(rows.reduce((s,r)=>s+r.i.sisa*r.b.amount,0))}</td><td colspan="2"></td></tr>`;
+    const fs=$(o.statusId).value,all=billRows($(o.qId).value.trim().toLowerCase(),o.platId?$(o.platId).value:"");
+    const rows=fs?all.filter(r=>r.st.key===fs):all;
+    $(o.sumId).innerHTML=sumChips(all,fs,o.statusId);
+    $(o.boxId).innerHTML=rows.length?billGroups(rows,o.canDelete)
+      :`<div class="panel empty">${billsArr().length?"Tidak ada tagihan yang cocok dengan filter.":"Belum ada tagihan. Klik “+ Tambah tagihan”."}</div>`;
   }
+  const LIST_VIEW={qId:"lt-q",statusId:"lt-status",sumId:"lt-sum",boxId:"lt-groups",canDelete:false};
+  const MASTER_VIEW={qId:"bf-q",platId:"bf-plat",statusId:"bf-status",sumId:"bill-sum",boxId:"bill-cards",canDelete:true};
+  const renderListTagihan=()=>renderBillView(LIST_VIEW);
+  const renderMasterBills=()=>renderBillView(MASTER_VIEW);
+  ["lt-q","lt-status"].forEach(id=>$(id).addEventListener("input",renderListTagihan));
+  ["bf-q","bf-plat","bf-status"].forEach(id=>$(id).addEventListener("input",renderMasterBills));
+  ["lt-sum","bill-sum"].forEach(id=>$(id).addEventListener("click",e=>{
+    const c=e.target.closest("[data-chip]");if(!c)return;const sel=$(c.dataset.target);
+    sel.value=sel.value===c.dataset.chip?"":c.dataset.chip;sel.dispatchEvent(new Event("input"));
+  }));
+
   const parseAmt=v=>Number(String(v).replace(/[^\d]/g,""));
   const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   $("f-amount").addEventListener("input",e=>{const n=parseAmt(e.target.value);e.target.value=n?n.toLocaleString("id-ID"):""});
@@ -476,13 +530,16 @@
     $("m-bill").hidden=false;setTimeout(()=>$("f-platform").focus(),0);
   }
   $("bill-add").onclick=()=>openBill(null);
-  $("bill-rows").addEventListener("click",e=>{
+  $("lt-add").onclick=()=>openBill(null);
+  function onCardClick(e){
     const ed=e.target.closest("[data-bill-edit]");if(ed)return openBill(ed.dataset.billEdit);
-    const del=e.target.closest("[data-bill-del]");if(!del)return;
+    const del=e.target.closest("[data-bill-del]");if(!del||S.me.role!=="admin")return;
     const b=S.bills[del.dataset.billDel];
     confirmBox(`Hapus tagihan <b>${esc(b.platform)}${b.note?" · "+esc(b.note):""}</b> (${fmt(b.amount)}) beserta histori pembayarannya?`,"Ya, hapus",async()=>{
       await Api.deleteBill(b.id);delete S.bills[b.id];await reload("payments");toast("Tagihan dihapus")});
-  });
+  }
+  $("lt-groups").addEventListener("click",onCardClick);
+  $("bill-cards").addEventListener("click",onCardClick);
   $("bill-form").addEventListener("submit",async e=>{
     e.preventDefault();
     const platform=$("f-platform").value.trim(),note=$("f-note").value.trim(),amount=parseAmt($("f-amount").value),tenor=parseInt($("f-tenor").value,10),dv=$("f-date").value;
