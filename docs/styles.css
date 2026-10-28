@@ -182,7 +182,47 @@ tfoot td{font-weight:700;background:var(--surface-2);border-top:1px solid var(--
 .dialog-f{display:flex;gap:8px;justify-content:flex-end;padding-top:4px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:9px;font-size:13px;z-index:40;max-width:calc(100% - 32px);box-shadow:0 8px 24px rgba(11,42,74,.25)}
 
+/* ---------- checklist info (status saja) ---------- */
+.chk{cursor:default}
+.row:not(.paid) .chk.late{border-color:var(--crit);background:var(--crit-soft)}
+
+/* ---------- konfirmasi pembayaran ---------- */
+.dialog.wide{max-width:620px}
+.chkline{flex-direction:row;align-items:center;gap:8px;font-weight:600;color:var(--fg)}
+.chkline input{width:16px;height:16px;flex:none;accent-color:var(--navy)}
+.pay-list{border:1px solid var(--line);border-radius:8px;max-height:340px;overflow:auto}
+.pay-item{display:grid;grid-template-columns:20px 62px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-weight:500;color:var(--fg);font-size:13px}
+.pay-item:last-child{border-bottom:0}
+.pay-item:hover{background:var(--surface-2)}
+.pay-item input{width:16px;height:16px;accent-color:var(--navy)}
+.pay-item .desc span{font-size:12px}
+.pay-sep{padding:7px 12px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface-2);border-bottom:1px solid var(--line)}
+.pay-f{align-items:center;flex-wrap:wrap}
+.pay-sum{margin-right:auto;font-size:13px;font-weight:600}
+
+/* ---------- kalkulator ---------- */
+.calc{display:grid;grid-template-columns:360px minmax(0,1fr);gap:18px;align-items:start}
+.calc-form{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets .btn{padding:6px 10px;font-size:12px}
+.presets .btn[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+.fs{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.fs legend{font-size:12px;font-weight:600;color:var(--fg-2);padding:0;margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-strong);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--fg-2);cursor:pointer;flex-direction:row}
+.chip input{width:14px;height:14px;accent-color:var(--navy)}
+.chip:has(input:checked){border-color:var(--navy);background:var(--accent-soft);color:var(--navy)}
+.extra{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.extra span{margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.extra-add{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:6px}
+.kpis-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpi.good .v{color:var(--good)} .kpi.bad .v{color:var(--crit)}
+tr.short td{background:var(--crit-soft)}
+tr.short td.r:last-child{color:var(--crit);font-weight:700}
+tr.overdue td:first-child{color:var(--crit);font-weight:600}
+
 /* ---------- responsif ---------- */
+@media (max-width:1180px){.calc{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:1080px){.grid{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:860px){
   .auth{grid-template-columns:minmax(0,1fr)}
@@ -201,6 +241,9 @@ tfoot td{font-weight:700;background:var(--surface-2);border-top:1px solid var(--
   .row{grid-template-columns:28px 54px minmax(0,1fr)}
   .row .st{grid-column:2/4;justify-content:flex-start}
   .kpi .v{font-size:18px}
+  .kpis-3{grid-template-columns:minmax(0,1fr)}
+  .pay-item{grid-template-columns:20px 54px minmax(0,1fr)}
+  .pay-item .amt{grid-column:3}
   .f2{grid-template-columns:1fr}
   .period .lbl{min-width:120px}
 }

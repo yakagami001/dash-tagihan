@@ -44,6 +44,10 @@
     async deleteBill(id) { chk(await sb.from("bills").delete().eq("id", id)); },
     async setPayment(k, p) { chk(await sb.from("payments").upsert({ id: k, bill_id: p.billId, period: p.period, amount: p.amount, paid_at: p.paidAt })); },
     async deletePayment(k) { chk(await sb.from("payments").delete().eq("id", k)); },
+    async setPayments(list) {
+      chk(await sb.from("payments").upsert(list.map(([k, p]) => ({ id: k, bill_id: p.billId, period: p.period, amount: p.amount, paid_at: p.paidAt }))));
+    },
+    async deletePayments(keys) { chk(await sb.from("payments").delete().in("id", keys)); },
 
     async users() { return chk(await sb.from("app_users").select("*").order("created_at")); },
     async createUser(u) { return chk(await sb.rpc("admin_create_user", { p_username: u.username, p_full_name: u.fullName, p_role: u.role })); },

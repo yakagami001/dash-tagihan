@@ -21,6 +21,7 @@
 
   const PAGES={
     "dashboard":{title:"Dashboard",crumb:"Menu utama"},
+    "kalkulator":{title:"Kalkulator Budget",crumb:"Menu utama"},
     "master-tagihan":{title:"Data Master Tagihan",crumb:"Master"},
     "master-user":{title:"Setting User",crumb:"Master",admin:true},
   };
@@ -142,7 +143,7 @@
     catch(e){toast("Gagal memuat data: "+errText(e))}
   }
   async function reload(which){try{if(which==="bills")S.bills=await Api.bills();else S.payments=await Api.payments();renderPage()}catch(e){}}
-  function renderPage(){if(S.page==="dashboard")renderDashboard();if(S.page==="master-tagihan")renderMasterBills();}
+  function renderPage(){if(S.page==="dashboard")renderDashboard();if(S.page==="kalkulator")renderCalc();if(S.page==="master-tagihan")renderMasterBills();}
 
   /* ================= jadwal cicilan ================= */
   function inst(b,p){
@@ -198,7 +199,7 @@
   function rowHTML(it){
     const st=status(it),b=it.bill;
     return `<div class="row ${it.paid?"paid":""}">
-      <button class="chk" data-act="toggle" data-id="${esc(b.id)}" aria-label="${it.paid?"Tandai belum dibayar":"Tandai sudah dibayar"}" aria-pressed="${it.paid}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="m3 7.5 2.5 2.5L11 4.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <span class="chk${st.cls==="crit"?" late":""}" role="img" aria-label="${it.paid?"Sudah dibayar":"Belum dibayar"}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="m3 7.5 2.5 2.5L11 4.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <div class="due">${String(it.due.getDate()).padStart(2,"0")} ${MON[it.due.getMonth()]}<small>${DAYS[it.due.getDay()]}</small></div>
       <div class="desc"><b>${S.group==="date"?esc(b.platform)+(b.note?" · "+esc(b.note):""):esc(b.note||"Cicilan "+b.platform)}</b><span>Cicilan ke-${it.ke} dari ${b.tenor} · sisa ${it.sisa}x${it.paid&&it.pay.paidAt?" · dibayar "+new Date(it.pay.paidAt).toLocaleDateString("id-ID",{day:"numeric",month:"short"}):""}</span></div>
       <div class="st"><span class="amt">${fmt(b.amount)}</span><span class="pill ${st.cls}">${st.txt}</span></div></div>`;
@@ -251,14 +252,59 @@
   $("go-now").onclick=()=>{S.period=currentPeriod();renderDashboard()};
   document.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{S.filter=b.dataset.f;document.querySelectorAll("[data-f]").forEach(x=>x.setAttribute("aria-pressed",x===b));renderDashboard()});
   document.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{S.group=b.dataset.g;document.querySelectorAll("[data-g]").forEach(x=>x.setAttribute("aria-pressed",x===b));renderDashboard()});
-  $("list").addEventListener("click",async e=>{
-    const btn=e.target.closest("[data-act='toggle']");if(!btn)return;
-    const id=btn.dataset.id,b=S.bills[id],key=id+"__"+S.period,was=!!S.payments[key];
-    try{
-      if(was){delete S.payments[key];renderDashboard();await Api.deletePayment(key);toast(b.platform+" ditandai belum dibayar")}
-      else{const d={billId:id,period:S.period,amount:b.amount,paidAt:new Date().toISOString()};S.payments[key]=d;renderDashboard();await Api.setPayment(key,d);toast(b.platform+" "+fmt(b.amount)+" ditandai lunas")}
-    }catch(err){toast("Gagal menyimpan: "+errText(err));reload("payments")}
-  });
+  /* ---------- konfirmasi pembayaran (multi pilih) ---------- */
+  const P={mode:"pay",items:{}};
+  const keyOf=it=>it.bill.id+"__"+it.period;
+  function payCandidates(){
+    if(P.mode==="undo") return {groups:[["Sudah dibayar · "+pLabel(S.period),itemsFor(S.period).filter(i=>i.paid)]]};
+    const late=[];
+    for(const b of billsArr()){const s=pIdx(b.startPeriod);
+      for(let k=0;k<b.tenor;k++){const p=idxP(s+k);if(pIdx(p)>=pIdx(S.period))break;const it=inst(b,p);if(it&&!it.paid)late.push(it)}}
+    late.sort((a,b)=>a.due-b.due);
+    return {groups:[["Tunggakan bulan sebelumnya",late],["Belum dibayar · "+pLabel(S.period),itemsFor(S.period).filter(i=>!i.paid)]]};
+  }
+  function openPay(mode){
+    P.mode=mode||P.mode;P.items={};setErr("pay-err","");
+    document.querySelectorAll("[data-pm]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.pm===P.mode));
+    const {groups}=payCandidates();
+    let html="";
+    groups.forEach(([title,list])=>{if(!list.length)return;html+=`<div class="pay-sep">${esc(title)}</div>`;
+      list.forEach(it=>{const k=keyOf(it),st=status(it);P.items[k]=it;
+        html+=`<label class="pay-item"><input type="checkbox" value="${esc(k)}">
+          <span class="due">${String(it.due.getDate()).padStart(2,"0")} ${MON[it.due.getMonth()]}<small>${it.due.getFullYear()}</small></span>
+          <span class="desc"><b>${esc(it.bill.platform)}${it.bill.note?" · "+esc(it.bill.note):""}</b><span>Cicilan ke-${it.ke} dari ${it.bill.tenor} · <span class="pill ${st.cls}">${st.txt}</span></span></span>
+          <span class="amt">${fmt(it.bill.amount)}</span></label>`})});
+    $("pay-list").innerHTML=html||`<div class="empty">${P.mode==="pay"?"Tidak ada cicilan yang belum dibayar di periode ini.":"Belum ada pembayaran di periode ini."}</div>`;
+    $("pay-hint").textContent=P.mode==="pay"?"Centang cicilan yang sudah Anda bayar, lalu konfirmasi.":"Centang pembayaran yang ingin dibatalkan (dikembalikan ke status belum dibayar).";
+    $("pay-date-l").hidden=P.mode!=="pay";$("pay-date").value=iso(today);
+    $("pay-all").checked=false;$("pay-all").closest("label").hidden=!Object.keys(P.items).length;
+    $("pay-go").textContent=P.mode==="pay"?"Konfirmasi sudah dibayar":"Batalkan pembayaran";
+    $("pay-go").classList.toggle("danger",P.mode==="undo");$("pay-go").classList.toggle("solid",P.mode==="undo");
+    paySum();$("m-pay").hidden=false;
+  }
+  const paySel=()=>[...document.querySelectorAll("#pay-list input:checked")].map(i=>P.items[i.value]);
+  function paySum(){const s=paySel();$("pay-sum").textContent=s.length+" dipilih · "+fmt(sum(s));$("pay-go").disabled=!s.length;
+    const all=document.querySelectorAll("#pay-list input");$("pay-all").checked=all.length&&s.length===all.length}
+  $("pay-open").onclick=()=>openPay("pay");
+  document.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>openPay(b.dataset.pm));
+  $("pay-list").addEventListener("change",paySum);
+  $("pay-all").onchange=e=>{document.querySelectorAll("#pay-list input").forEach(i=>i.checked=e.target.checked);paySum()};
+  $("pay-go").onclick=()=>{
+    const sel=paySel();if(!sel.length)return;
+    const dv=$("pay-date").value;
+    if(P.mode==="pay"&&!dv)return setErr("pay-err","Isi tanggal bayar.");
+    const list=sel.map(it=>`<li>${esc(it.bill.platform)}${it.bill.note?" · "+esc(it.bill.note):""} — ${it.due.getDate()} ${MON[it.due.getMonth()]} · <b>${fmt(it.bill.amount)}</b></li>`).join("");
+    const head=P.mode==="pay"
+      ?`Konfirmasi <b>${sel.length} cicilan</b> senilai <b>${fmt(sum(sel))}</b> sudah dibayar pada <b>${dateID(dv)}</b>?`
+      :`Batalkan <b>${sel.length} pembayaran</b> senilai <b>${fmt(sum(sel))}</b>? Statusnya kembali menjadi belum dibayar.`;
+    confirmBox(`${head}<ul style="margin:10px 0 0;padding-left:18px;font-size:13px;max-height:180px;overflow:auto">${list}</ul>`,P.mode==="pay"?"Ya, sudah dibayar":"Ya, batalkan",async()=>{
+      if(P.mode==="pay"){const[Y,M,D]=dv.split("-").map(Number),at=new Date(Y,M-1,D,12).toISOString();
+        await Api.setPayments(sel.map(it=>[keyOf(it),{billId:it.bill.id,period:it.period,amount:it.bill.amount,paidAt:at}]))}
+      else await Api.deletePayments(sel.map(keyOf));
+      $("m-pay").hidden=true;await reload("payments");
+      toast(P.mode==="pay"?sel.length+" cicilan ditandai sudah dibayar":sel.length+" pembayaran dibatalkan");
+    });
+  };
 
   /* ---------- notifikasi browser ---------- */
   function notify(msg){try{new Notification("Dash Tagihan",{body:msg,tag:"dash-tagihan"});return true}catch(e){return false}}
@@ -279,6 +325,72 @@
       syncNotifBtn();notify(ewsSummary());toast("Notifikasi aktif. Pengingat muncul sekali sehari saat dashboard dibuka.");
     }catch(e){toast("Browser ini tidak mendukung notifikasi.")}
   };
+
+  /* ================= kalkulator budget ================= */
+  const C={init:false,off:new Set(),extras:[]};
+  const XKEY="dash-tagihan:extras";
+  try{C.extras=JSON.parse(localStorage.getItem(XKEY))||[]}catch(e){}
+  const saveExtras=()=>{try{localStorage.setItem(XKEY,JSON.stringify(C.extras))}catch(e){}};
+  function presetRange(p){
+    const cur=pIdx(currentPeriod()),y=Math.floor(cur/12),m=cur%12;
+    if(p==="period")return [today,new Date(y,m+1,0)];
+    if(p==="next")return [new Date(y,m+1,1),new Date(y,m+2,0)];
+    if(p==="90")return [today,new Date(today.getTime()+90*dayMs)];
+    return [today,new Date(today.getTime()+30*dayMs)];
+  }
+  function applyPreset(p){const[f,t]=presetRange(p);$("c-from").value=iso(f);$("c-to").value=iso(t);
+    document.querySelectorAll("[data-preset]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.preset===p));renderCalc()}
+  document.querySelectorAll("[data-preset]").forEach(b=>b.onclick=()=>applyPreset(b.dataset.preset));
+  ["c-from","c-to"].forEach(id=>$(id).addEventListener("input",()=>{document.querySelectorAll("[data-preset]").forEach(b=>b.setAttribute("aria-pressed","false"));renderCalc()}));
+  $("c-fund").addEventListener("input",e=>{const n=parseAmt(e.target.value);e.target.value=n?n.toLocaleString("id-ID"):"";renderCalc()});
+  $("c-overdue").addEventListener("change",renderCalc);
+  $("c-plats").addEventListener("change",e=>{const p=e.target.value;e.target.checked?C.off.delete(p):C.off.add(p);renderCalc()});
+  $("c-x-amt").addEventListener("input",e=>{const n=parseAmt(e.target.value);e.target.value=n?n.toLocaleString("id-ID"):""});
+  function addExtra(){const n=$("c-x-name").value.trim(),a=parseAmt($("c-x-amt").value);
+    if(!n||!a)return toast("Isi nama dan nominal biaya lain.");
+    C.extras.push({n,a});saveExtras();$("c-x-name").value="";$("c-x-amt").value="";renderCalc();$("c-x-name").focus()}
+  $("c-x-add").onclick=addExtra;
+  ["c-x-name","c-x-amt"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addExtra()}}));
+  $("c-extras").addEventListener("click",e=>{const b=e.target.closest("[data-x]");if(!b)return;C.extras.splice(+b.dataset.x,1);saveExtras();renderCalc()});
+  const parseDate=v=>{if(!v)return null;const[Y,M,D]=v.split("-").map(Number);return new Date(Y,M-1,D)};
+
+  function renderCalc(){
+    if(!C.init){C.init=true;applyPreset("period");return}
+    const plats=[...new Set(billsArr().map(b=>b.platform))].sort();
+    $("c-plats").innerHTML=plats.map(p=>`<label class="chip"><input type="checkbox" value="${esc(p)}"${C.off.has(p)?"":" checked"}>${esc(p)}</label>`).join("")||'<span class="hint">Belum ada tagihan.</span>';
+    $("c-extras").innerHTML=C.extras.map((x,i)=>`<div class="extra"><span>${esc(x.n)}</span><b class="num">${fmt(x.a)}</b><button type="button" class="btn ghost danger" data-x="${i}" aria-label="Hapus ${esc(x.n)}">✕</button></div>`).join("");
+    if(!S.loaded)return;
+    const from=parseDate($("c-from").value),to=parseDate($("c-to").value),fund=parseAmt($("c-fund").value),od=$("c-overdue").checked;
+    if(!from||!to||to<from){$("c-rows").innerHTML=`<tr><td colspan="5" class="empty">Pilih rentang tanggal yang valid.</td></tr>`;return}
+    const items=[];
+    for(const b of billsArr()){if(C.off.has(b.platform))continue;const s=pIdx(b.startPeriod);
+      for(let k=0;k<b.tenor;k++){const it=inst(b,idxP(s+k));if(!it||it.paid)continue;
+        if(it.due>to)break;if(it.due>=from||od)items.push(it)}}
+    items.sort((a,b)=>a.due-b.due);
+    const xTot=C.extras.reduce((s,x)=>s+x.a,0),bTot=sum(items),need=bTot+xTot,late=items.filter(i=>i.due<from);
+    $("c-need").textContent=fmt(need);
+    $("c-need-s").textContent=items.length+" cicilan"+(late.length?` (${late.length} tunggakan)`:"")+(C.extras.length?` + ${C.extras.length} biaya lain`:"");
+    $("c-fund-v").textContent=fmt(fund);
+    $("c-range").textContent=dateID(from)+" – "+dateID(to);
+    const diff=fund-need,card=$("c-diff-card");
+    card.classList.toggle("good",!!fund&&diff>=0);card.classList.toggle("bad",!!fund&&diff<0);
+    $("c-diff-k").textContent=!fund?"Selisih":diff>=0?"Sisa dana":"Kekurangan";
+    $("c-diff").textContent=fund?fmt(Math.abs(diff)):"—";
+    $("c-diff-s").textContent=!fund?"Isi dana tersedia untuk menghitung":diff>=0?"Dana cukup untuk semua tagihan":"Dana tidak cukup";
+    // urutan bayar: biaya lain dulu, lalu tagihan per jatuh tempo
+    let bal=fund,firstShort=null;
+    const rowsX=C.extras.map(x=>{bal-=x.a;const sh=fund&&bal<0;if(sh&&!firstShort)firstShort={label:x.n,when:"biaya lain"};
+      return `<tr class="${sh?"short":""}"><td><span class="hint">Biaya lain</span></td><td>${esc(x.n)}</td><td></td><td class="r num">${fmt(x.a)}</td><td class="r num">${fund?fmt(bal):"—"}</td></tr>`});
+    const rowsB=items.map(it=>{bal-=it.bill.amount;const sh=fund&&bal<0,ov=it.due<from;
+      if(sh&&!firstShort)firstShort={label:it.bill.platform,when:dateID(it.due)};
+      return `<tr class="${sh?"short ":""}${ov?"overdue":""}"><td>${dateID(it.due)}${ov?' · telat':""}</td><td>${esc(it.bill.platform)}</td><td>${esc(it.bill.note)||'<span class="hint">Cicilan ke-'+it.ke+"</span>"}</td><td class="r num">${fmt(it.bill.amount)}</td><td class="r num">${fund?fmt(bal):"—"}</td></tr>`});
+    $("c-rows").innerHTML=rowsX.concat(rowsB).join("")||`<tr><td colspan="5" class="empty">Tidak ada tagihan belum dibayar di rentang ini.</td></tr>`;
+    const al=$("c-short");
+    if(firstShort){al.hidden=false;al.innerHTML=`Dana mulai tidak cukup saat membayar <b>${esc(firstShort.label)}</b> (${esc(firstShort.when)}). Total kekurangan <b>${fmt(-diff)}</b>.`}else al.hidden=true;
+    const g={};items.forEach(i=>g[i.bill.platform]=(g[i.bill.platform]||0)+i.bill.amount);if(xTot)g["Biaya lain"]=xTot;
+    const keys=Object.keys(g).sort((a,b)=>g[b]-g[a]),max=Math.max(1,...keys.map(k=>g[k]));
+    $("c-plat-sum").innerHTML=keys.map(k=>`<div class="plat-row"><div class="top2"><b>${esc(k)}</b><span class="num">${fmt(g[k])} · ${need?Math.round(g[k]/need*100):0}%</span></div><div class="stack"><i style="width:${g[k]/max*100}%;background:var(--navy)"></i></div></div>`).join("")||'<div class="hint">Tidak ada data di rentang ini.</div>';
+  }
 
   /* ================= master tagihan ================= */
   function billInfo(b){

@@ -90,6 +90,9 @@
       <a href="#dashboard" data-page="dashboard">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="10" y="2" width="6" height="4" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="2" y="11" width="6" height="5" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="10" y="8" width="6" height="8" rx="1.5" stroke="currentColor" stroke-width="1.6"/></svg>
         Dashboard</a>
+      <a href="#kalkulator" data-page="kalkulator">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="2" width="12" height="14" rx="2" stroke="currentColor" stroke-width="1.6"/><rect x="5.5" y="4.5" width="7" height="3" rx=".8" stroke="currentColor" stroke-width="1.4"/><path d="M6 10.5h.01M9 10.5h.01M12 10.5h.01M6 13h.01M9 13h.01M12 13h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Kalkulator Budget</a>
       <span class="sec">Master</span>
       <a href="#master-tagihan" data-page="master-tagihan">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="2" width="12" height="14" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M6 6h6M6 9h6M6 12h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -140,6 +143,7 @@
         <section class="panel" aria-label="Checklist">
           <div class="panel-h">
             <h2 id="list-title">Checklist</h2>
+            <button class="btn primary" id="pay-open">Konfirmasi pembayaran</button>
             <div class="seg" role="group" aria-label="Filter">
               <button data-f="all" aria-pressed="true">Semua</button>
               <button data-f="unpaid" aria-pressed="false">Belum</button>
@@ -162,6 +166,57 @@
             <div class="panel-h"><h2>Histori &amp; proyeksi 12 bulan</h2></div>
             <div class="chart" id="chart"></div>
             <div class="legend"><span><i style="background:var(--accent)"></i>Dibayar</span><span><i style="background:var(--unpaid)"></i>Belum</span></div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <!-- Kalkulator budget -->
+    <main class="content" id="page-kalkulator" hidden>
+      <div class="calc">
+        <section class="panel calc-in" aria-label="Parameter">
+          <div class="panel-h"><h2>Parameter estimasi</h2></div>
+          <form class="calc-form" id="calc-form" novalidate>
+            <div class="presets" role="group" aria-label="Rentang cepat">
+              <button type="button" class="btn" data-preset="period">Periode berjalan</button>
+              <button type="button" class="btn" data-preset="30">30 hari</button>
+              <button type="button" class="btn" data-preset="next">Bulan depan</button>
+              <button type="button" class="btn" data-preset="90">3 bulan</button>
+            </div>
+            <div class="f2">
+              <label for="c-from">Dari tanggal<input id="c-from" type="date"></label>
+              <label for="c-to">Sampai tanggal<input id="c-to" type="date"></label>
+            </div>
+            <label for="c-fund">Dana tersedia (Rp)<input id="c-fund" inputmode="numeric" placeholder="mis. 10.000.000" autocomplete="off"><span class="hint">Gaji, saldo rekening, atau dana yang disiapkan untuk rentang ini.</span></label>
+            <label class="chkline" for="c-overdue"><input id="c-overdue" type="checkbox" checked> Sertakan tunggakan (belum dibayar sebelum tanggal mulai)</label>
+            <fieldset class="fs"><legend>Platform</legend><div class="chips" id="c-plats"></div></fieldset>
+            <fieldset class="fs"><legend>Biaya lain <span class="hint">opsional, tersimpan di browser ini</span></legend>
+              <div id="c-extras"></div>
+              <div class="extra-add">
+                <input id="c-x-name" placeholder="mis. Listrik" autocomplete="off" aria-label="Nama biaya">
+                <input id="c-x-amt" inputmode="numeric" placeholder="Nominal" autocomplete="off" aria-label="Nominal biaya">
+                <button type="button" class="btn" id="c-x-add">Tambah</button>
+              </div>
+            </fieldset>
+          </form>
+        </section>
+        <div class="stackcol">
+          <section class="kpis kpis-3" aria-label="Hasil estimasi">
+            <div class="kpi hl"><span class="k">Kebutuhan budget</span><span class="v" id="c-need">Rp 0</span><span class="s" id="c-need-s">0 cicilan</span></div>
+            <div class="kpi"><span class="k">Dana tersedia</span><span class="v" id="c-fund-v">Rp 0</span><span class="s" id="c-range">—</span></div>
+            <div class="kpi" id="c-diff-card"><span class="k" id="c-diff-k">Selisih</span><span class="v" id="c-diff">Rp 0</span><span class="s" id="c-diff-s">Isi dana tersedia</span></div>
+          </section>
+          <div class="alert bad" id="c-short" hidden></div>
+          <section class="panel">
+            <div class="panel-h"><h2>Rincian per platform</h2></div>
+            <div class="plat" id="c-plat-sum"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-h"><h2>Urutan pembayaran &amp; saldo berjalan</h2></div>
+            <div class="tbl-wrap"><table>
+              <thead><tr><th>Jatuh tempo</th><th>Platform</th><th>Keterangan</th><th class="r">Nominal</th><th class="r">Sisa dana</th></tr></thead>
+              <tbody id="c-rows"></tbody>
+            </table></div>
           </section>
         </div>
       </div>
@@ -214,6 +269,28 @@
       <div class="err" id="f-err" hidden></div>
       <div class="dialog-f"><button type="button" class="btn" data-close>Batal</button><button type="submit" class="btn primary" id="f-submit">Simpan</button></div>
     </form>
+  </div>
+</div>
+
+<div class="modal" id="m-pay" hidden>
+  <div class="dialog wide" role="dialog" aria-modal="true" aria-labelledby="m-pay-t">
+    <div class="dialog-h"><h3 id="m-pay-t">Konfirmasi pembayaran</h3><button class="btn ghost" data-close aria-label="Tutup">✕</button></div>
+    <div class="body">
+      <div class="seg" role="group" aria-label="Jenis konfirmasi">
+        <button type="button" data-pm="pay" aria-pressed="true">Tandai sudah dibayar</button>
+        <button type="button" data-pm="undo" aria-pressed="false">Batalkan pembayaran</button>
+      </div>
+      <p class="hint" id="pay-hint" style="margin:0"></p>
+      <label class="chkline pay-all" for="pay-all"><input id="pay-all" type="checkbox"> Pilih semua</label>
+      <div class="pay-list" id="pay-list"></div>
+      <label for="pay-date" id="pay-date-l">Tanggal bayar<input id="pay-date" type="date"></label>
+      <div class="err" id="pay-err" hidden></div>
+      <div class="dialog-f pay-f">
+        <span class="pay-sum" id="pay-sum">0 dipilih</span>
+        <button type="button" class="btn" data-close>Batal</button>
+        <button type="button" class="btn primary" id="pay-go" disabled>Konfirmasi</button>
+      </div>
+    </div>
   </div>
 </div>
 
