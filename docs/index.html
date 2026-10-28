@@ -131,51 +131,55 @@
         <span class="hint" id="today-lbl"></span>
       </div>
 
-      <section class="kpis" aria-label="Ringkasan">
-        <div class="kpi hl"><span class="k">Total tagihan</span><span class="v" id="k-total">Rp 0</span><span class="s" id="k-total-s">0 cicilan</span></div>
-        <div class="kpi"><span class="k">Sudah dibayar</span><span class="v" id="k-paid">Rp 0</span><span class="s" id="k-paid-s">0 cicilan</span></div>
-        <div class="kpi"><span class="k">Belum dibayar</span><span class="v" id="k-left">Rp 0</span><span class="s" id="k-left-s">0 cicilan</span></div>
-        <div class="kpi"><span class="k">Progres bayar</span><span class="v" id="k-pct">0%</span><div class="bar"><i id="k-bar" style="width:0%"></i></div></div>
+      <section class="ews-bar ok" id="ews-bar" aria-label="Peringatan dini" aria-live="polite">
+        <span class="ews-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2.5 16 15H2L9 2.5z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 7.5v3.2M9 12.8h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></span>
+        <div class="ews-main"><b id="ews-title">Memuat peringatan…</b><div class="ews-chips" id="ews-list"></div></div>
+        <button type="button" class="icon-btn" id="notif-btn" title="Kirim notifikasi browser" aria-label="Kirim notifikasi browser">
+          <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><path d="M4.5 13V8a4.5 4.5 0 0 1 9 0v5l1.5 1.5H3L4.5 13z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M7.3 16a1.8 1.8 0 0 0 3.4 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
       </section>
 
-      <section class="panel" aria-label="Peringatan dini">
-        <div class="panel-h"><h2>Peringatan dini (EWS)</h2><span class="hint">Belum dibayar, terlambat atau jatuh tempo ≤ 7 hari</span><button class="btn" id="notif-btn">Aktifkan notifikasi</button></div>
-        <div class="ews-list" id="ews-list"><div class="empty">Memuat…</div></div>
+      <section class="kpis kpis-3" aria-label="Ringkasan">
+        <div class="kpi hl">
+          <span class="k">Total tagihan</span><span class="v" id="k-total">Rp 0</span><span class="s" id="k-total-s">0 cicilan</span>
+          <div class="kpi-prog"><div class="bar"><i id="k-bar" style="width:0%"></i></div><span id="k-pct">0% terbayar</span></div>
+        </div>
+        <div class="kpi kpi-good"><span class="k"><i class="dot"></i>Sudah dibayar</span><span class="v" id="k-paid">Rp 0</span><span class="s" id="k-paid-s">0 cicilan</span><span class="kpi-foot" id="k-paid-x"></span></div>
+        <div class="kpi kpi-warn" id="k-left-card"><span class="k"><i class="dot"></i>Belum dibayar</span><span class="v" id="k-left">Rp 0</span><span class="s" id="k-left-s">0 cicilan</span><span class="kpi-foot" id="k-left-x"></span></div>
       </section>
 
-      <div class="grid">
-        <section class="panel" aria-label="Checklist">
-          <div class="panel-h">
-            <h2 id="list-title">Checklist</h2>
-            <button class="btn primary" id="pay-open">Konfirmasi pembayaran</button>
-            <div class="ph-tools">
-              <div class="seg" role="group" aria-label="Filter">
-                <button data-f="all" aria-pressed="true">Semua</button>
-                <button data-f="unpaid" aria-pressed="false">Belum</button>
-                <button data-f="paid" aria-pressed="false">Sudah</button>
-              </div>
-              <div class="seg" role="group" aria-label="Urutan">
-                <button data-g="platform" aria-pressed="true">Per platform</button>
-                <button data-g="date" aria-pressed="false">Per tanggal</button>
-              </div>
-              <button type="button" class="btn" id="dash-toggle-all" aria-pressed="false">Buka semua</button>
-            </div>
-          </div>
-          <div id="list"><div class="empty">Memuat checklist…</div></div>
+      <div class="charts">
+        <section class="panel" aria-label="Histori dan proyeksi">
+          <div class="panel-h"><h2>Histori &amp; proyeksi 12 bulan</h2><span class="hint">Klik batang untuk pindah periode</span></div>
+          <div class="chart" id="chart"></div>
+          <div class="legend"><span><i style="background:var(--good)"></i>Dibayar</span><span><i style="background:var(--due)"></i>Belum</span></div>
         </section>
-        <section class="panel side-tabs" aria-label="Ringkasan">
-          <div class="panel-h">
-            <div class="seg" role="tablist" aria-label="Ringkasan">
-              <button type="button" role="tab" id="tab-plat" data-tab="plat" aria-selected="true" aria-pressed="true" aria-controls="tp-plat">Per platform</button>
-              <button type="button" role="tab" id="tab-chart" data-tab="chart" aria-selected="false" aria-pressed="false" aria-controls="tp-chart">Grafik 12 bulan</button>
-            </div>
-            <span class="hint" id="plat-hint"></span>
-          </div>
-          <div id="tp-plat" role="tabpanel" aria-labelledby="tab-plat"><div class="plat" id="plat"></div></div>
-          <div id="tp-chart" role="tabpanel" aria-labelledby="tab-chart" hidden><div class="chart" id="chart"></div></div>
-          <div class="legend"><span><i style="background:var(--accent)"></i>Dibayar</span><span><i style="background:var(--unpaid)"></i>Belum</span></div>
+        <section class="panel" aria-label="Per platform">
+          <div class="panel-h"><h2>Per platform</h2><span class="hint" id="plat-hint"></span></div>
+          <div class="plat" id="plat"></div>
+          <div class="legend"><span><i style="background:var(--good)"></i>Dibayar</span><span><i style="background:var(--due)"></i>Belum</span></div>
         </section>
       </div>
+
+      <section class="panel" aria-label="Checklist">
+        <div class="panel-h">
+          <h2 id="list-title">Checklist</h2>
+          <button class="btn primary" id="pay-open">Konfirmasi pembayaran</button>
+          <div class="ph-tools">
+            <div class="seg" role="group" aria-label="Filter">
+              <button data-f="all" aria-pressed="true">Semua</button>
+              <button data-f="unpaid" aria-pressed="false">Belum</button>
+              <button data-f="paid" aria-pressed="false">Sudah</button>
+            </div>
+            <div class="seg" role="group" aria-label="Urutan">
+              <button data-g="platform" aria-pressed="true">Per platform</button>
+              <button data-g="date" aria-pressed="false">Per tanggal</button>
+            </div>
+            <button type="button" class="btn" id="dash-toggle-all" aria-pressed="false">Buka semua</button>
+          </div>
+        </div>
+        <div id="list"><div class="empty">Memuat checklist…</div></div>
+      </section>
     </main>
 
     <!-- Kalkulator budget -->

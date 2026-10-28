@@ -217,24 +217,32 @@
     $("list-title").textContent="Checklist "+pLabel(S.period);
     const items=itemsFor(S.period), paid=items.filter(i=>i.paid), tot=sum(items), pTot=sum(paid);
     $("k-total").textContent=fmt(tot);$("k-total-s").textContent=items.length+" cicilan dari "+new Set(items.map(i=>i.bill.platform)).size+" platform";
-    $("k-paid").textContent=fmt(pTot);$("k-paid-s").textContent=paid.length+" cicilan";
-    $("k-left").textContent=fmt(tot-pTot);$("k-left-s").textContent=(items.length-paid.length)+" cicilan";
-    const pct=tot?Math.round(pTot/tot*100):0;$("k-pct").textContent=pct+"%";$("k-bar").style.width=pct+"%";
+    const pct=tot?Math.round(pTot/tot*100):0,late=items.filter(i=>!i.paid&&i.due<today).length;
+    $("k-paid").textContent=fmt(pTot);$("k-paid-s").textContent=paid.length+" cicilan · "+pct+"% dari total";
+    $("k-left").textContent=fmt(tot-pTot);
+    $("k-left-s").textContent=(items.length-paid.length)+" cicilan"+(late?" · "+late+" terlambat":"");
+    $("k-left-card").classList.toggle("kpi-crit",late>0);$("k-left-card").classList.toggle("kpi-warn",!late);
+    const lastPaid=paid.filter(i=>i.pay&&i.pay.paidAt).sort((a,b)=>new Date(b.pay.paidAt)-new Date(a.pay.paidAt))[0];
+    const nextDue=items.filter(i=>!i.paid).sort((a,b)=>a.due-b.due)[0];
+    $("k-paid-x").innerHTML=lastPaid?`Terakhir dibayar <b>${esc(lastPaid.bill.platform)}</b> · ${new Date(lastPaid.pay.paidAt).getDate()} ${MON[new Date(lastPaid.pay.paidAt).getMonth()]}`:"Belum ada pembayaran di periode ini";
+    $("k-left-x").innerHTML=nextDue?`Jatuh tempo terdekat <b>${esc(nextDue.bill.platform)}</b> · ${nextDue.due.getDate()} ${MON[nextDue.due.getMonth()]} · ${fmt(nextDue.bill.amount)}`:"Semua cicilan periode ini lunas";
+    $("k-pct").textContent=pct+"% terbayar · "+paid.length+"/"+items.length+" cicilan";$("k-bar").style.width=pct+"%";
     if(!S.loaded) return;
     renderEWS();renderList(items);renderPlat(items);renderChart();
   }
   function renderEWS(){
-    const list=allUnpaidSoon(),el=$("ews-list");
-    if(!list.length){el.innerHTML=`<div class="empty" style="grid-column:1/-1">Aman. Tidak ada tagihan terlambat atau jatuh tempo dalam 7 hari ke depan.</div>`;return}
-    // tampilkan beberapa yang paling mendesak dulu supaya dashboard tidak memanjang
-    const max=window.innerWidth<700?3:4,shown=S.ewsAll?list:list.slice(0,max),more=list.length-shown.length;
-    el.innerHTML=shown.map(it=>{const st=status(it),c=st.cls==="idle"?"soon":st.cls;
-      return `<div class="ews-item ${c}"><div class="d">${st.txt}</div><div class="t"><b>${esc(it.bill.platform)} · ${fmt(it.bill.amount)}</b><span>${it.due.getDate()} ${MON[it.due.getMonth()]} ${it.due.getFullYear()}${it.bill.note?" · "+esc(it.bill.note):""}</span></div></div>`}).join("")
-      +(list.length>max?`<button type="button" class="btn ews-more" data-ews-more>${S.ewsAll?"Tampilkan lebih sedikit":`Lihat semua (${more} lainnya · ${fmt(sum(list.slice(max)))})`}</button>`:"");
+    // bar notifikasi ringkas: warna mengikuti kondisi terburuk (merah telat, jingga ≤7 hari, hijau aman)
+    const list=allUnpaidSoon(),el=$("ews-list"),bar=$("ews-bar");
+    const late=list.filter(i=>i.due<today).length,soon=list.length-late;
+    bar.className="ews-bar "+(late?"crit":soon?"warn":"ok");
+    if(!list.length){$("ews-title").textContent="Aman. Tidak ada tagihan terlambat atau jatuh tempo dalam 7 hari.";el.innerHTML="";return}
+    $("ews-title").textContent=[late?late+" terlambat":"",soon?soon+" jatuh tempo ≤ 7 hari":""].filter(Boolean).join(" · ")+" — total "+fmt(sum(list));
+    const max=window.innerWidth<700?2:4,shown=S.ewsAll?list:list.slice(0,max),more=list.length-shown.length;
+    el.innerHTML=shown.map(it=>{const st=status(it),c=it.due<today?"crit":"warn";
+      return `<span class="ews-chip ${c}"><b>${esc(it.bill.platform)}</b> <span class="num">${fmt(it.bill.amount)}</span> · ${it.due.getDate()} ${MON[it.due.getMonth()]} · ${st.txt}</span>`}).join("")
+      +(list.length>max?`<button type="button" class="ews-more" data-ews-more>${S.ewsAll?"Ringkas":`+${more} lainnya`}</button>`:"");
   }
-  document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{
-    document.querySelectorAll("[data-tab]").forEach(x=>{const on=x===b;x.setAttribute("aria-selected",on);x.setAttribute("aria-pressed",on);$("tp-"+x.dataset.tab).hidden=!on});
-    $("plat-hint").hidden=b.dataset.tab!=="plat"});
+  let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{if(S.page==="dashboard"&&S.loaded){renderChart();renderEWS()}},150)});
   $("ews-list").addEventListener("click",e=>{if(e.target.closest("[data-ews-more]")){S.ewsAll=!S.ewsAll;renderEWS()}});
   function rowHTML(it){
     const st=status(it),b=it.bill;
@@ -276,7 +284,7 @@
     const keys=Object.keys(g).sort((a,b)=>g[b].t-g[a].t),max=Math.max(1,...keys.map(k=>g[k].t));
     $("plat-hint").textContent=pLabel(S.period);
     $("plat").innerHTML=keys.length?keys.map(k=>{const x=g[k],wp=x.p/max*100,wu=(x.t-x.p)/max*100;
-      return `<div class="plat-row" title="${esc(k)}: dibayar ${fmt(x.p)}, belum ${fmt(x.t-x.p)}"><div class="top2"><b>${esc(k)}</b><span class="num">${fmt(x.t-x.p)} belum · ${fmt(x.t)}</span></div><div class="stack">${wp?`<i style="width:${wp}%;background:var(--accent)"></i>`:""}${wu?`<i style="width:${wu}%;background:var(--unpaid)"></i>`:""}</div></div>`}).join(""):`<div class="hint">Belum ada data.</div>`;
+      return `<div class="plat-row" title="${esc(k)}: dibayar ${fmt(x.p)}, belum ${fmt(x.t-x.p)}"><div class="top2"><b>${esc(k)}</b><span class="num">${fmt(x.t-x.p)} belum · ${fmt(x.t)}</span></div><div class="stack">${wp?`<i style="width:${wp}%;background:var(--good)"></i>`:""}${wu?`<i style="width:${wu}%;background:var(--due)"></i>`:""}</div></div>`}).join(""):`<div class="hint">Belum ada data.</div>`;
   }
   function niceStep(x){const p=Math.pow(10,Math.floor(Math.log10(x)));const n=x/p;return(n<=1?1:n<=2?2:n<=5?5:10)*p}
   function barPath(x,y,w,h,round){if(h<=0)return"";const r=round?Math.min(4,h,w/2):0;
@@ -284,13 +292,14 @@
   function renderChart(){
     const c=$("chart"),base=pIdx(S.period),months=[];
     for(let k=-5;k<=6;k++){const p=idxP(base+k),its=itemsFor(p);months.push({p,t:sum(its),pd:sum(its.filter(i=>i.paid))})}
-    const W=330,H=170,L=34,B=22,T=8,cw=(W-L)/12,bw=Math.min(16,cw-6),ph=H-T-B;
+    // ukuran mengikuti lebar panel supaya grafik tidak membesar/mengecil tak proporsional
+    const W=Math.max(300,Math.round((c.clientWidth||640)-36)),H=230,L=40,B=24,T=10,cw=(W-L)/12,bw=Math.min(34,cw*.55),ph=H-T-B;
     const max=Math.max(1,...months.map(m=>m.t)),step=niceStep(max/3),top=Math.ceil(max/step)*step,y=v=>T+ph*(1-v/top);
-    let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Total tagihan per bulan, dibayar dan belum">`;
+    let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Total tagihan per bulan, dibayar dan belum">`;
     for(let v=0;v<=top+1;v+=step)s+=`<line class="gl" x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${L-6}" y="${y(v)+3}" text-anchor="end">${v?short(v):"0"}</text>`;
     months.forEach((m,i)=>{const x=L+i*cw+(cw-bw)/2,sel=m.p===S.period,hp=ph*m.pd/top,hu=ph*(m.t-m.pd)/top,y0=H-B;
-      if(m.pd)s+=`<path d="${barPath(x,y0-hp,bw,hp,!(m.t-m.pd))}" fill="var(--accent)"/>`;
-      if(m.t-m.pd)s+=`<path d="${barPath(x,y0-hp-hu,bw,hu-(m.pd?2:0),true)}" fill="var(--unpaid)"/>`;
+      if(m.pd)s+=`<path d="${barPath(x,y0-hp,bw,hp,!(m.t-m.pd))}" fill="var(--good)"/>`;
+      if(m.t-m.pd)s+=`<path d="${barPath(x,y0-hp-hu,bw,hu-(m.pd?2:0),true)}" fill="var(--due)"/>`;
       s+=`<text x="${x+bw/2}" y="${H-7}" text-anchor="middle" style="${sel?"fill:var(--navy);font-weight:600":""}">${MON[pIdx(m.p)%12]}</text>`;
       s+=`<rect x="${L+i*cw}" y="0" width="${cw}" height="${H}" fill="transparent" data-i="${i}" style="cursor:pointer"/>`});
     c.innerHTML=s+`</svg><div class="tip" id="tip" hidden></div>`;
@@ -380,7 +389,7 @@
       const k="dash-tagihan:notified",d=today.toDateString();if(localStorage.getItem(k)===d)return;
       if(notify(msg))localStorage.setItem(k,d)}catch(e){}
   }
-  function syncNotifBtn(){try{if("Notification" in window&&Notification.permission==="granted")$("notif-btn").textContent="Kirim notifikasi sekarang"}catch(e){}}
+  function syncNotifBtn(){try{const on="Notification" in window&&Notification.permission==="granted",b=$("notif-btn"),t=on?"Kirim notifikasi sekarang":"Aktifkan notifikasi browser";b.title=t;b.setAttribute("aria-label",t);b.classList.toggle("on",on)}catch(e){}}
   syncNotifBtn();
   $("notif-btn").onclick=async()=>{
     try{
