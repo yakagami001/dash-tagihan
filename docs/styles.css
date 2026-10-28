@@ -242,6 +242,24 @@ tr.short td{background:var(--crit-soft)}
 tr.short td.r:last-child{color:var(--crit);font-weight:700}
 tr.overdue td:first-child{color:var(--crit);font-weight:600}
 
+/* ---------- dashboard ringkas ---------- */
+.group-h.toggle{width:100%;border:0;text-align:left;cursor:pointer;font:inherit;flex-wrap:wrap;row-gap:6px}
+.group-h.toggle:hover{background:var(--navy-3)}
+.group-h .pill.crit{background:#fff;color:var(--crit)}
+.group-h .near{color:var(--navy-ink);font-size:12px}
+.group-h .gh-end{margin-left:auto;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.group-h .gh-end .num{margin-left:0}
+.group-h .chev{flex:none;color:#fff;transition:transform .15s ease}
+.group-h.toggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.group+.group{border-top:1px solid rgba(255,255,255,.12)}
+.group{border-bottom:0}
+.group-body .row:first-child{border-top:0}
+.list-scroll{max-height:560px;overflow-y:auto}
+.ews-more{grid-column:1/-1;justify-self:start}
+.side-tabs .panel-h{flex-wrap:nowrap}
+.side-tabs .chart{padding-top:16px}
+@media (prefers-reduced-motion:reduce){.group-h .chev{transition:none}}
+
 /* ---------- kartu tagihan per platform ---------- */
 .sum-chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .sumchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-strong);background:var(--surface);border-radius:99px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--fg-2)}
@@ -279,9 +297,9 @@ tr.overdue td:first-child{color:var(--crit);font-weight:600}
 .icon-btn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
 .icon-btn.danger{color:var(--crit)}
 .icon-btn.danger:hover{background:var(--crit);border-color:var(--crit);color:#fff}
-.lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.clbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .bcard-due{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 8px;border-radius:8px;padding:10px 12px;background:var(--surface-2)}
-.bcard-due .lbl{grid-column:1/-1}
+.bcard-due .clbl{grid-column:1/-1}
 .bcard-due strong{font-family:var(--f-num);font-size:20px;font-weight:600;color:var(--navy);letter-spacing:-.02em}
 .bcard.crit .bcard-due{background:var(--crit-soft)} .bcard.crit .bcard-due strong{color:var(--crit)}
 .bcard.warn .bcard-due{background:var(--warn-soft)} .bcard.warn .bcard-due strong{color:var(--warn)}

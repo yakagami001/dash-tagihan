@@ -158,22 +158,23 @@
                 <button data-g="platform" aria-pressed="true">Per platform</button>
                 <button data-g="date" aria-pressed="false">Per tanggal</button>
               </div>
+              <button type="button" class="btn" id="dash-toggle-all" aria-pressed="false">Buka semua</button>
             </div>
           </div>
           <div id="list"><div class="empty">Memuat checklist…</div></div>
         </section>
-        <div class="stackcol">
-          <section class="panel" aria-label="Per platform">
-            <div class="panel-h"><h2>Per platform</h2><span class="hint" id="plat-hint"></span></div>
-            <div class="plat" id="plat"></div>
-            <div class="legend"><span><i style="background:var(--accent)"></i>Dibayar</span><span><i style="background:var(--unpaid)"></i>Belum</span></div>
-          </section>
-          <section class="panel" aria-label="Histori dan proyeksi">
-            <div class="panel-h"><h2>Histori &amp; proyeksi 12 bulan</h2></div>
-            <div class="chart" id="chart"></div>
-            <div class="legend"><span><i style="background:var(--accent)"></i>Dibayar</span><span><i style="background:var(--unpaid)"></i>Belum</span></div>
-          </section>
-        </div>
+        <section class="panel side-tabs" aria-label="Ringkasan">
+          <div class="panel-h">
+            <div class="seg" role="tablist" aria-label="Ringkasan">
+              <button type="button" role="tab" id="tab-plat" data-tab="plat" aria-selected="true" aria-pressed="true" aria-controls="tp-plat">Per platform</button>
+              <button type="button" role="tab" id="tab-chart" data-tab="chart" aria-selected="false" aria-pressed="false" aria-controls="tp-chart">Grafik 12 bulan</button>
+            </div>
+            <span class="hint" id="plat-hint"></span>
+          </div>
+          <div id="tp-plat" role="tabpanel" aria-labelledby="tab-plat"><div class="plat" id="plat"></div></div>
+          <div id="tp-chart" role="tabpanel" aria-labelledby="tab-chart" hidden><div class="chart" id="chart"></div></div>
+          <div class="legend"><span><i style="background:var(--accent)"></i>Dibayar</span><span><i style="background:var(--unpaid)"></i>Belum</span></div>
+        </section>
       </div>
     </main>
 

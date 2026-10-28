@@ -27,7 +27,7 @@
     "master-user":{title:"Setting User",crumb:"Master",admin:true},
   };
 
-  const S={me:null,bills:{},payments:{},users:[],settings:{cutoffDay:25,warnDays:3},period:null,filter:"all",group:"platform",
+  const S={me:null,bills:{},payments:{},users:[],settings:{cutoffDay:25,warnDays:3},period:null,filter:"all",group:"platform",dashOpen:new Set(),ewsAll:false,
     page:"dashboard",editBill:null,editUser:null,loaded:false,toastShown:false,watching:false,captcha:"",fails:0,lockUntil:0};
 
   function currentPeriod(){let i=today.getFullYear()*12+today.getMonth();if(today.getDate()>=S.settings.cutoffDay)i++;return idxP(i)}
@@ -226,9 +226,16 @@
   function renderEWS(){
     const list=allUnpaidSoon(),el=$("ews-list");
     if(!list.length){el.innerHTML=`<div class="empty" style="grid-column:1/-1">Aman. Tidak ada tagihan terlambat atau jatuh tempo dalam 7 hari ke depan.</div>`;return}
-    el.innerHTML=list.map(it=>{const st=status(it),c=st.cls==="idle"?"soon":st.cls;
-      return `<div class="ews-item ${c}"><div class="d">${st.txt}</div><div class="t"><b>${esc(it.bill.platform)} · ${fmt(it.bill.amount)}</b><span>${it.due.getDate()} ${MON[it.due.getMonth()]} ${it.due.getFullYear()}${it.bill.note?" · "+esc(it.bill.note):""}</span></div></div>`}).join("");
+    // tampilkan beberapa yang paling mendesak dulu supaya dashboard tidak memanjang
+    const max=window.innerWidth<700?3:4,shown=S.ewsAll?list:list.slice(0,max),more=list.length-shown.length;
+    el.innerHTML=shown.map(it=>{const st=status(it),c=st.cls==="idle"?"soon":st.cls;
+      return `<div class="ews-item ${c}"><div class="d">${st.txt}</div><div class="t"><b>${esc(it.bill.platform)} · ${fmt(it.bill.amount)}</b><span>${it.due.getDate()} ${MON[it.due.getMonth()]} ${it.due.getFullYear()}${it.bill.note?" · "+esc(it.bill.note):""}</span></div></div>`}).join("")
+      +(list.length>max?`<button type="button" class="btn ews-more" data-ews-more>${S.ewsAll?"Tampilkan lebih sedikit":`Lihat semua (${more} lainnya · ${fmt(sum(list.slice(max)))})`}</button>`:"");
   }
+  document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll("[data-tab]").forEach(x=>{const on=x===b;x.setAttribute("aria-selected",on);x.setAttribute("aria-pressed",on);$("tp-"+x.dataset.tab).hidden=!on});
+    $("plat-hint").hidden=b.dataset.tab!=="plat"});
+  $("ews-list").addEventListener("click",e=>{if(e.target.closest("[data-ews-more]")){S.ewsAll=!S.ewsAll;renderEWS()}});
   function rowHTML(it){
     const st=status(it),b=it.bill;
     return `<div class="row ${it.paid?"paid":""}">
@@ -242,11 +249,28 @@
     let f=items;if(S.filter==="paid")f=items.filter(i=>i.paid);if(S.filter==="unpaid")f=items.filter(i=>!i.paid);
     if(!items.length){el.innerHTML=`<div class="empty">Tidak ada cicilan di ${pLabel(S.period)}.<br>Tambah tagihan di menu <a href="#master-tagihan">Data Master Tagihan</a>.</div>`;return}
     if(!f.length){el.innerHTML=`<div class="empty">${S.filter==="paid"?"Belum ada yang dibayar di periode ini.":"Semua tagihan periode ini sudah dibayar."}</div>`;return}
-    if(S.group==="date"){el.innerHTML=`<div class="group">${f.map(rowHTML).join("")}</div>`;return}
+    $("dash-toggle-all").hidden=S.group==="date";
+    if(S.group==="date"){el.innerHTML=`<div class="group list-scroll">${f.map(rowHTML).join("")}</div>`;return}
+    // grup platform tertutup secara default; judul grup sudah memuat ringkasannya
     const g={},all={};f.forEach(i=>(g[i.bill.platform]=g[i.bill.platform]||[]).push(i));items.forEach(i=>(all[i.bill.platform]=all[i.bill.platform]||[]).push(i));
-    el.innerHTML=Object.keys(g).sort((a,b)=>sum(all[b])-sum(all[a])).map(p=>{const a=all[p],pd=a.filter(i=>i.paid).length;
-      return `<div class="group"><div class="group-h"><b>${esc(p)}</b><span>${pd}/${a.length} lunas</span><span class="num">${fmt(sum(a))}</span></div>${g[p].map(rowHTML).join("")}</div>`}).join("");
+    el.innerHTML=Object.keys(g).sort((a,b)=>sum(all[b])-sum(all[a])).map(p=>{
+      const a=all[p],pd=a.filter(i=>i.paid).length,un=a.filter(i=>!i.paid),open=S.dashOpen.has(p);
+      const late=un.filter(i=>i.due<today).length,soon=un.filter(i=>{const d=(i.due-today)/dayMs;return d>=0&&d<=7}).length;
+      const near=un.sort((x,y)=>x.due-y.due)[0];
+      return `<div class="group"><button type="button" class="group-h toggle" data-dgrp="${esc(p)}" aria-expanded="${open}">
+        <b>${esc(p)}</b><span>${pd}/${a.length} lunas</span>${late?`<span class="pill crit">${late} telat</span>`:""}${soon?`<span class="pill warn">${soon} ≤ 7 hari</span>`:""}
+        ${near?`<span class="near">Terdekat ${near.due.getDate()} ${MON[near.due.getMonth()]}</span>`:""}
+        <span class="gh-end"><span class="num">${fmt(sum(a))}</span><svg class="chev" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <div class="group-body"${open?"":" hidden"}>${g[p].map(rowHTML).join("")}</div></div>`}).join("");
+    syncDashToggle(Object.keys(g));
   }
+  function syncDashToggle(ps){const a=ps.length&&ps.every(p=>S.dashOpen.has(p)),b=$("dash-toggle-all");b.textContent=a?"Tutup semua":"Buka semua";b.setAttribute("aria-pressed",a)}
+  $("list").addEventListener("click",e=>{const t=e.target.closest("[data-dgrp]");if(!t)return;
+    const p=t.dataset.dgrp,show=!S.dashOpen.has(p);show?S.dashOpen.add(p):S.dashOpen.delete(p);
+    t.setAttribute("aria-expanded",show);t.nextElementSibling.hidden=!show;
+    syncDashToggle([...document.querySelectorAll("#list [data-dgrp]")].map(x=>x.dataset.dgrp))});
+  $("dash-toggle-all").onclick=()=>{const ps=[...document.querySelectorAll("#list [data-dgrp]")].map(x=>x.dataset.dgrp);
+    if(ps.every(p=>S.dashOpen.has(p)))S.dashOpen.clear();else ps.forEach(p=>S.dashOpen.add(p));renderDashboard()};
   function renderPlat(items){
     const g={};items.forEach(i=>{const x=g[i.bill.platform]=g[i.bill.platform]||{t:0,p:0};x.t+=i.bill.amount;if(i.paid)x.p+=i.bill.amount});
     const keys=Object.keys(g).sort((a,b)=>g[b].t-g[a].t),max=Math.max(1,...keys.map(k=>g[k].t));
@@ -465,12 +489,12 @@
         <div class="bcard-acts"><button type="button" class="icon-btn" data-bill-edit="${esc(b.id)}" title="Ubah tagihan" aria-label="Ubah ${esc(b.note||b.platform)}">${ICON_EDIT}</button>${canDelete?`<button type="button" class="icon-btn danger" data-bill-del="${esc(b.id)}" title="Hapus tagihan" aria-label="Hapus ${esc(b.note||b.platform)}">${ICON_DEL}</button>`:""}</div>
       </header>
       <div class="bcard-due">
-        <span class="lbl">${n?"Jatuh tempo berikutnya":"Status cicilan"}</span>
+        <span class="clbl">${n?"Jatuh tempo berikutnya":"Status cicilan"}</span>
         <strong>${n?`${String(n.due.getDate()).padStart(2,"0")} ${MON[n.due.getMonth()]} ${n.due.getFullYear()}`:"Lunas"}</strong>
         <span class="pill ${st.cls}">${st.txt}</span>
       </div>
       <div class="bcard-prog">
-        <div class="row2"><span class="lbl">Sisa cicilan</span><b class="num">${i.sisa} <small>/ ${b.tenor}x</small></b></div>
+        <div class="row2"><span class="clbl">Sisa cicilan</span><b class="num">${i.sisa} <small>/ ${b.tenor}x</small></b></div>
         <div class="bar"><i style="width:${pct}%"></i></div>
         <span class="hint">${i.paid} dari ${b.tenor} terbayar${n?" · berikutnya cicilan ke-"+n.ke:""}</span>
       </div>
