@@ -35,6 +35,9 @@
   /* ================= util UI ================= */
   let tt; function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,4200)}
   function show(view){["login","reset","app"].forEach(v=>$("view-"+v).hidden=v!==view)}
+  // label tiap sel dari judul kolom, dipakai tampilan kartu di HP
+  function labelize(tbodyId){const tb=$(tbodyId),hs=[...tb.closest("table").querySelectorAll("thead th")].map(t=>t.textContent.trim());
+    tb.querySelectorAll("tr").forEach(tr=>{if(tr.children.length<2)return;[...tr.children].forEach((td,i)=>td.dataset.label=hs[i]||"")})}
   function setErr(id,msg){const e=$(id);e.textContent=msg||"";e.hidden=!msg}
   document.addEventListener("click",e=>{
     const t=e.target.closest("[data-toggle]");
@@ -393,6 +396,7 @@
       if(sh&&!firstShort)firstShort={label:it.bill.platform,when:dateID(it.due)};
       return `<tr class="${sh?"short ":""}${ov?"overdue":""}"><td>${dateID(it.due)}${ov?' · telat':""}</td><td>${esc(it.bill.platform)}</td><td>${esc(it.bill.note)||'<span class="hint">Cicilan ke-'+it.ke+"</span>"}</td><td class="r num">${fmt(it.bill.amount)}</td><td class="r num">${fund?fmt(bal):"—"}</td></tr>`});
     $("c-rows").innerHTML=rowsX.concat(rowsB).join("")||`<tr><td colspan="5" class="empty">Tidak ada tagihan belum dibayar di rentang ini.</td></tr>`;
+    labelize("c-rows");
     const al=$("c-short");
     if(firstShort){al.hidden=false;al.innerHTML=`Dana mulai tidak cukup saat membayar <b>${esc(firstShort.label)}</b> (${esc(firstShort.when)}). Total kekurangan <b>${fmt(-diff)}</b>.`}else al.hidden=true;
     const g={};items.forEach(i=>g[i.bill.platform]=(g[i.bill.platform]||0)+i.bill.amount);if(xTot)g["Biaya lain"]=xTot;
@@ -425,8 +429,9 @@
       <td class="r num">${i.paid}/${b.tenor}</td><td class="r num">${fmt(i.sisa*b.amount)}</td>
       <td>${i.sisa?`<span class="pill soon">Aktif · sisa ${i.sisa}x</span>`:`<span class="pill good">Lunas</span>`}</td>
       <td><div class="acts"><button class="btn ghost" data-bill-edit="${esc(b.id)}">Ubah</button><button class="btn ghost danger" data-bill-del="${esc(b.id)}">Hapus</button></div></td></tr>`).join("");
+    labelize("bill-rows");
     const act=rows.filter(r=>r.i.sisa>0);
-    $("bill-foot").innerHTML=`<tr><td colspan="2">${rows.length} tagihan · ${act.length} aktif</td><td class="r num">${fmt(act.reduce((s,r)=>s+r.b.amount,0))}</td><td colspan="3"></td><td class="r num">${fmt(rows.reduce((s,r)=>s+r.i.sisa*r.b.amount,0))}</td><td colspan="2"></td></tr>`;
+    $("bill-foot").innerHTML=`<tr><td colspan="2">${rows.length} tagihan · ${act.length} aktif</td><td class="r num" data-label="Nominal aktif / bln">${fmt(act.reduce((s,r)=>s+r.b.amount,0))}</td><td colspan="3"></td><td class="r num" data-label="Total sisa nominal">${fmt(rows.reduce((s,r)=>s+r.i.sisa*r.b.amount,0))}</td><td colspan="2"></td></tr>`;
   }
   const parseAmt=v=>Number(String(v).replace(/[^\d]/g,""));
   const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
@@ -479,6 +484,7 @@
       <td><div class="acts"><button class="btn ghost" data-u-edit="${u.user_id}">Ubah</button>
         <button class="btn ghost" data-u-reset="${u.user_id}">Reset password</button>
         ${self?"":`<button class="btn ghost danger" data-u-del="${u.user_id}">Hapus</button>`}</div></td></tr>`}).join("")||`<tr><td colspan="7" class="empty">Belum ada user.</td></tr>`;
+    labelize("user-rows");
   }
   function openUser(id){
     const u=id&&S.users.find(x=>x.user_id===id);S.editUser=u?id:null;setErr("u-err","");
